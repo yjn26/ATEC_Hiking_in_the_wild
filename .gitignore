@@ -30,6 +30,15 @@ docker/artifacts/
 *.tmp
 logs
 outputs
+/checkpoints/
+docs/
+
+# Local temp
+:memory:.ses
+AAAtmp/
+Hiking_deploy/InstinctMJ
+Hiking_deploy/sim2sim/assets/scene/generated/
+Hiking_deploy/sim2sim/env.local.sh
 
 # Isaac-Sim packman
 _isaac_sim*

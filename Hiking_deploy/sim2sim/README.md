@@ -13,9 +13,12 @@ speaks the exact same interfaces as a real Unitree G1, so that
 | Jetson ZMQ depth broadcast (:5555) | MuJoCo depth render from the `depth_camera` (D435 mount, fovy 58) → raw z16 on **:5556** |
 | a person holding the robot | virtual gantry (toggle keys 9/8) |
 
-The default scene is the gx_loco_deploy staircase (**0.30 m tread / 0.075 m
-rise — the training stair dimensions**). Point `--scene` at any other MJCF
-that includes the same `g1.xml`.
+The default scene is a 20 m x 20 m raised course centred on G1's initial pose.
+The forward `+x` lane climbs and descends stairs (**0.30 m tread / 0.075 m
+rise**); the rear `-x` lane is a matching concave staircase that descends then
+rises. The `+y` lane is a 0.5 m-wide, 0.5 m-deep square gap around a 2.5 m
+platform, while the `-y` lane is a 15 degree convex square pyramid. A safety floor
+lies at z=-1.0 m beneath the course.
 
 ## Official training terrain (all 10 sub-terrain types)
 
@@ -88,7 +91,9 @@ visualization toggles (W = wireframe, R = reflection, S = shadow, ...).
 | `7` | R1 — cold_start → stand, or parkour → stand |
 | `6` | L1 — stand → parkour |
 | `R` | force reset to spawn, then automatically return to free parkour motion |
-| `↑` | forward ON (vx = +0.5 m/s in parkour) |
+| `Space` | pause / resume physics — low-state, joystick and depth topics keep publishing frozen data |
+| `1` | reset to the centre of the combined course, then automatically return to free parkour motion |
+| `↑` | add `+0.2 m/s` to vx, capped at `+1.0 m/s` |
 | `↓` | STOP — zero all velocity commands |
 | `←` / `→` | turn left / right — **1 s pulse per press**, then auto-zero (like flicking a real stick) |
 | `E` | L2 — emergency-stop test (deploy exits, robot goes limp) |
@@ -96,6 +101,10 @@ visualization toggles (W = wireframe, R = reflection, S = shadow, ...).
 | `+` / `-` | teleport one terrain **difficulty row** up / down (training-terrain scenes; same column, pose kept, gantry re-engaged — press `8` to release; the deploy script keeps running seamlessly) |
 | `*` / `/` | switch **terrain type** — next / previous column at the current difficulty (wraps around; `*` needs the keypad) |
 | `.` | toggle camera **follow ↔ free**: follow (default) keeps the robot centred, including across `+`/`-`/`*`//` teleports; free lets you drag the view with the mouse (it starts aimed at the robot) |
+
+The viewer's upper-left velocity overlay reports the requested `CMD vx` and
+pelvis-frame measured `ACT vx`. The one-click launcher sets the forward command
+range to `1.0 m/s`.
 
 Suggested sequence: wait for cold start to settle → `7` (stand) → `8`
 (release the gantry, see if the stand policy balances) → `6` (parkour) →

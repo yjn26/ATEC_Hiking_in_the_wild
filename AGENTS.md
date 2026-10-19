@@ -1,6 +1,6 @@
 ---
-description: Overview of InstinctLab design principles, usage, and expansion guide.
-globs: source/instinctlab/**/*.py, scripts/**/*.py
+description: Overview of InstinctLab design principles, usage, deployment validation, and expansion guide.
+globs: source/instinctlab/**/*.py, scripts/**/*.py, Hiking_deploy/**/*.py, Hiking_deploy/**/*.sh
 ---
 # InstinctLab Overview
 
@@ -66,6 +66,16 @@ InstinctLab is the environment side of Project Instinct, built on top of **Isaac
   ```python
   MeshFileCfg(asset_path=..., collision_props=..., apply_collision_props_at_spawn=True, make_instanceable=False)
   ```
+
+### 7. Sim-to-Sim Deployment (`Hiking_deploy/sim2sim`)
+- **Description**: A MuJoCo robot impersonator for validating the Hiking deployment stack before using a real Unitree G1. The bridge publishes the same low-state and IMU interfaces expected by the deployment script, applies motor-level PD in MuJoCo, renders depth, and accepts keyboard input as the joystick.
+- **Key files**:
+  - **`g1_mujoco_bridge.py`**: Runs the simulated robot, ROS 2 interfaces, motor control, and ZMQ depth publisher.
+  - **`env_sim.sh`**: Required simulation environment setup. It binds DDS to loopback only, so a deployment invocation with `--nodryrun` cannot reach a real robot.
+  - **`start_sim2sim_terminals.sh`**: Convenience launcher for the bridge, unmodified deployment script, and depth-pipeline viewer.
+- **Integration**: The deployment script runs unchanged against the bridge; depth is streamed over ZMQ on port `5556`. Simulation scene assets include the terrain selector and an optionally generated training-terrain scene.
+- **Safety**: Always source `sim2sim/env_sim.sh` in sim2sim terminals. Do not use `Hiking_deploy/setup_env.sh`, which configures DDS for the real robot.
+- **Usage**: Follow `Hiking_deploy/sim2sim/README.md` for required dependencies, terrain generation, keyboard controls, startup commands, and limitations.
 
 ## Motion Buffer Design & Usage
 
