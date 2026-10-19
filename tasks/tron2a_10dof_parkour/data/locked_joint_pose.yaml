@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "pose_name": "vendor_simulation_initial_pose_pending_mechanical_approval",
+  "approval_status": "pending_mechanical_safety_review",
+  "source": "TRON2A recorded simulation initial pose: arms at zero, grippers at opposing full stroke; not derived from an AMP motion frame",
+  "joints": {
+    "arm1_Joint": {"target_position": 0.0, "position_unit": "rad", "position_tolerance": 0.05, "stiffness": 800.0, "damping": 40.0},
+    "arm2_Joint": {"target_position": 0.0, "position_unit": "rad", "position_tolerance": 0.05, "stiffness": 800.0, "damping": 40.0},
+    "arm3_Joint": {"target_position": 0.0, "position_unit": "rad", "position_tolerance": 0.05, "stiffness": 800.0, "damping": 40.0},
+    "arm4_Joint": {"target_position": 0.0, "position_unit": "rad", "position_tolerance": 0.05, "stiffness": 800.0, "damping": 40.0},
+    "arm5_Joint": {"target_position": 0.0, "position_unit": "rad", "position_tolerance": 0.05, "stiffness": 800.0, "damping": 40.0},
+    "arm6_Joint": {"target_position": 0.0, "position_unit": "rad", "position_tolerance": 0.05, "stiffness": 800.0, "damping": 40.0},
+    "gripper1_Joint": {"target_position": 0.05, "position_unit": "m", "position_tolerance": 0.005, "stiffness": 800.0, "damping": 40.0},
+    "gripper2_Joint": {"target_position": -0.05, "position_unit": "m", "position_tolerance": 0.005, "stiffness": 800.0, "damping": 40.0}
+  }
+}

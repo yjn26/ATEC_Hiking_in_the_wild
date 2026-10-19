@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source_urdf_artifact": "training_urdf",
+  "all_joints_18": [
+    "proximal_pitch_L_Joint", "proximal_roll_L_Joint", "proximal_yaw_L_Joint", "knee_L_Joint", "ankle_pitch_L_Joint",
+    "proximal_pitch_R_Joint", "proximal_roll_R_Joint", "proximal_yaw_R_Joint", "knee_R_Joint", "ankle_pitch_R_Joint",
+    "arm1_Joint", "arm2_Joint", "arm3_Joint", "arm4_Joint", "arm5_Joint", "arm6_Joint", "gripper1_Joint", "gripper2_Joint"
+  ],
+  "policy_joints_10": [
+    "proximal_pitch_L_Joint", "proximal_roll_L_Joint", "proximal_yaw_L_Joint", "knee_L_Joint", "ankle_pitch_L_Joint",
+    "proximal_pitch_R_Joint", "proximal_roll_R_Joint", "proximal_yaw_R_Joint", "knee_R_Joint", "ankle_pitch_R_Joint"
+  ],
+  "locked_joints_8": [
+    "arm1_Joint", "arm2_Joint", "arm3_Joint", "arm4_Joint", "arm5_Joint", "arm6_Joint", "gripper1_Joint", "gripper2_Joint"
+  ],
+  "npz_contract": {
+    "artifact": "amp_motion",
+    "framerate_hz": 50.0,
+    "frame_count": 18317,
+    "joint_count": 18,
+    "quaternion_convention": "wxyz"
+  }
+}

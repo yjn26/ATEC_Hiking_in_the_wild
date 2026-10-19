@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "robot": "tron2a_10dof",
+  "source_policy": "Source files remain external and are referenced by read-only symlinks. SHA256 values freeze the accepted inputs.",
+  "artifacts": [
+    {
+      "id": "training_urdf",
+      "role": "authoritative training robot description",
+      "source_path": "/home/pc/phh/feature-phh-tron2/tron2a/SFYG_TRON2A/urdf/robot_rl.urdf",
+      "workspace_path": "urdf/robot_rl.urdf",
+      "sha256": "ba3dbf9a4efd65c234f35c28dce2aee7b97c2115c00e859a24a971d2095c407a"
+    },
+    {
+      "id": "reference_urdf",
+      "role": "non-RL robot description used only for structural comparison",
+      "source_path": "/home/pc/phh/feature-phh-tron2/tron2a/SFYG_TRON2A/urdf/robot.urdf",
+      "workspace_path": "urdf/robot.urdf",
+      "sha256": "3e7ed1de24e24c5a61a8f8149aad50344b34a293b63e7e5b822211dba1268310"
+    },
+    {
+      "id": "meshes",
+      "role": "URDF mesh dependency directory",
+      "source_path": "/home/pc/phh/feature-phh-tron2/tron2a/SFYG_TRON2A/meshes",
+      "workspace_path": "meshes"
+    },
+    {
+      "id": "mujoco_xml",
+      "role": "future sim2sim source asset; not used in phase 1 validation",
+      "source_path": "/home/pc/phh/feature-phh-tron2/tron2a/SFYG_TRON2A/xml/robot.xml",
+      "workspace_path": "mjcf/robot.xml",
+      "sha256": "f3a98266bd118eb1eb23177d472f59e9072f9b4339f5c1cb9cd3bbd870fb7db9"
+    },
+    {
+      "id": "amp_motion",
+      "role": "authoritative 18-DoF AMP candidate input",
+      "source_path": "/home/pc/phh/feature-phh-tron2/data/amass/processed/tron2a_10dof/parkour_motion_without_run_retargetted_665-end.retargetted.npz",
+      "workspace_path": "../../../tasks/tron2a_10dof_parkour/data/motions/parkour_motion_without_run_retargetted_665-end.retargetted.npz",
+      "sha256": "ddae0bd5726411efaeb090bb5999293f1dca3b28fcb277b4bc0b36dac5f66024"
+    },
+    {
+      "id": "amp_motion_metadata",
+      "role": "motion provenance and quaternion convention",
+      "source_path": "/home/pc/phh/feature-phh-tron2/data/amass/processed/tron2a_10dof/parkour_motion_without_run_retargetted_665-end.metadata.json",
+      "workspace_path": "../../../tasks/tron2a_10dof_parkour/data/motions/parkour_motion_without_run_retargetted_665-end.metadata.json",
+      "sha256": "a44787ef38254e173c416c9d832d76b76967c8c4ba07f6251e509c662292637d"
+    }
+  ]
+}
