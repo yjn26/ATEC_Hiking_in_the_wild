@@ -4,13 +4,19 @@ set -euo pipefail
 
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ZMQ_PORT=5556
-# This checkout still pins the unavailable Humble/Python 3.10 stack.  The
-# local Jazzy/Python 3.12 deployment environment supplies the ROS packages.
-SIM_ENV_DEPLOY_DIR="${SIM_ENV_DEPLOY_DIR:-/home/pc/phh/ATEC_InstinctLab/Hiking_deploy}"
+# Machine-local overrides live in env.local.sh (gitignored).  Use it to point
+# the launcher at another checkout's environment, e.g.
+#     SIM_ENV_DEPLOY_DIR=/path/to/Hiking_deploy
+# Without it the launcher uses this checkout's own sim2sim/env_sim.sh.
+if [[ -f "$DEPLOY_DIR/sim2sim/env.local.sh" ]]; then
+    source "$DEPLOY_DIR/sim2sim/env.local.sh"
+fi
+SIM_ENV_DEPLOY_DIR="${SIM_ENV_DEPLOY_DIR:-$DEPLOY_DIR}"
 SIM_ENV_SCRIPT="${SIM_ENV_DEPLOY_DIR}/sim2sim/env_sim.sh"
 STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/g1-sim2sim-launch"
 BRIDGE_LOG="${STATE_DIR}/bridge.log"
 DEPLOY_LOG="${STATE_DIR}/deploy.log"
+SELECTOR_SCENE="sim2sim/assets/scene/scene_29dof_terrain_selector.xml"
 
 if [[ -z "${DISPLAY:-}" && -S /tmp/.X11-unix/X1 ]]; then
     export DISPLAY=:1
@@ -95,7 +101,7 @@ send_mujoco_key() {
     xdotool key --window "$window_id" "$key"
 }
 
-open_terminal "G1 Sim2Sim Bridge" "python -u sim2sim/g1_mujoco_bridge.py 2>&1 | tee $(printf '%q' "$BRIDGE_LOG")"
+open_terminal "G1 Sim2Sim Bridge" "python -u sim2sim/g1_mujoco_bridge.py --scene ${SELECTOR_SCENE} --terrain-mode 1 --forward-speed 1.0 2>&1 | tee $(printf '%q' "$BRIDGE_LOG")"
 
 for _ in {1..30}; do
     if ss -ltn | grep -qE ":${ZMQ_PORT}[[:space:]]"; then
@@ -110,7 +116,7 @@ if ! ss -ltn | grep -qE ":${ZMQ_PORT}[[:space:]]"; then
 fi
 
 open_terminal "G1 Sim2Sim Deploy" \
-    "python -u instinct_onboard/scripts/g1_parkour_laptop.py --zmq_addr tcp://127.0.0.1:${ZMQ_PORT} --nodryrun 2>&1 | tee $(printf '%q' "$DEPLOY_LOG")"
+    "python -u instinct_onboard/scripts/g1_parkour_laptop.py --zmq_addr tcp://127.0.0.1:${ZMQ_PORT} --lin_vel_range 1.0 1.0 --nodryrun 2>&1 | tee $(printf '%q' "$DEPLOY_LOG")"
 open_terminal "G1 Sim2Sim Depth" \
     "real_time_img --source zmq --zmq-addr tcp://127.0.0.1:${ZMQ_PORT} --stages"
 
@@ -131,5 +137,5 @@ sleep 2
 send_mujoco_key "$MUJOCO_WINDOW" 8
 send_mujoco_key "$MUJOCO_WINDOW" Down
 
-echo "Opened all three terminals and prepared MuJoCo: Enter -> 7 -> 6 -> 8."
-echo "The robot is in parkour mode with zero speed; use Up/Down in the MuJoCo window."
+echo "Opened all three terminals on the centered four-direction course: Enter -> 7 -> 6 -> 8."
+echo "The robot is in parkour mode with zero speed; Up adds 0.2 m/s (max 1.0), Down stops."

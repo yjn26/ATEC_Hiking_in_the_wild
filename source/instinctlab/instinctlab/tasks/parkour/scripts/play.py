@@ -6,13 +6,16 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 sys.path.append(os.path.join(os.getcwd(), "scripts", "instinct_rl"))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from isaaclab.app import AppLauncher
 
 # local imports
 import cli_args  # isort: skip
+from play_controls import apply_keyboard_velocity_delta
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Play an RL agent with Instinct-RL.")
@@ -26,6 +29,12 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--exportonnx", action="store_true", default=False, help="Export policy as ONNX model.")
 parser.add_argument("--useonnx", action="store_true", default=False, help="Use the exported ONNX model for inference.")
+parser.add_argument(
+    "--onnx_model_dir",
+    type=str,
+    default=None,
+    help="Directory containing actor.onnx and 0-depth_encoder.onnx, or the actor.onnx file itself.",
+)
 parser.add_argument("--debug", action="store_true", default=False, help="Enable debug mode.")
 parser.add_argument("--no_resume", default=None, action="store_true", help="Force play in no resume mode.")
 # custom play arguments
@@ -35,7 +44,8 @@ parser.add_argument("--sample", action="store_true", default=False, help="Sample
 parser.add_argument("--zero_act_until", type=int, default=0, help="Zero actions until this timestep.")
 parser.add_argument("--keyboard_control", action="store_true", default=False, help="Enable keyboard control.")
 parser.add_argument("--keyboard_linvel_step", type=float, default=0.5, help="Linear velocity change per keyboard step.")
-parser.add_argument("--keyboard_angvel", type=float, default=1.0, help="Angular velocity set by keyboard.")
+parser.add_argument("--keyboard_angvel", type=float, default=1.0, help="Yaw-rate change per keyboard step.")
+parser.add_argument("--no_depth_viewer", action="store_true", help="Do not open the Qt depth and velocity viewer.")
 
 # append Instinct-RL cli arguments
 cli_args.add_instinct_rl_args(parser)
@@ -63,7 +73,7 @@ from instinct_rl.utils.utils import get_obs_slice, get_subobs_by_components, get
 
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
 from isaaclab.utils.dict import print_dict
-from isaaclab.utils.io import load_pickle, load_yaml
+from isaaclab.utils.io import load_yaml
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 # Import extensions to set up environment tasks
@@ -90,12 +100,28 @@ def main():
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
     agent_cfg: InstinctRlOnPolicyRunnerCfg = cli_args.parse_instinct_rl_cfg(args_cli.task, args_cli)
+    direct_onnx = args_cli.onnx_model_dir is not None
+    if direct_onnx:
+        if args_cli.exportonnx:
+            raise ValueError("--exportonnx cannot be used with --onnx_model_dir.")
+        if args_cli.env_cfg or args_cli.agent_cfg:
+            raise ValueError("--env_cfg and --agent_cfg require a PyTorch checkpoint run.")
+        args_cli.useonnx = True
+        from onnxer import validate_parkour_onnx_model_dir
+
+        onnx_model_dir = validate_parkour_onnx_model_dir(args_cli.onnx_model_dir)
+        print(f"[INFO]: Using direct ONNX policy from: {onnx_model_dir}")
+        # Deployment ONNX exports have a fixed batch dimension of one.
+        env_cfg.scene.num_envs = 1
 
     # specify directory for logging experiments
     log_root_path = os.path.join("logs", "instinct_rl", agent_cfg.experiment_name)
     log_root_path = os.path.abspath(log_root_path)
     agent_cfg.load_run = args_cli.load_run
-    if agent_cfg.load_run is not None:
+    if direct_onnx:
+        log_dir = str(onnx_model_dir.parent)
+        resume_path = None
+    elif agent_cfg.load_run is not None:
         print(f"[INFO] Loading experiment from directory: {log_root_path}")
         if os.path.isabs(agent_cfg.load_run):
             resume_path = get_checkpoint_path(
@@ -115,7 +141,7 @@ def main():
         resume_path = "model_scratch.pt"
 
     if args_cli.env_cfg:
-        env_cfg = load_pickle(os.path.join(log_dir, "params", "env.pkl"))
+        env_cfg = load_yaml(os.path.join(log_dir, "params", "env.yaml"))
     if args_cli.agent_cfg:
         agent_cfg_dict = load_yaml(os.path.join(log_dir, "params", "agent.yaml"))
     else:
@@ -124,6 +150,8 @@ def main():
     if args_cli.keyboard_control:
         env_cfg.scene.num_envs = 1
         env_cfg.episode_length_s = 1e10
+
+    model_label = Path(resume_path).stem.split("_")[-1] if resume_path is not None else onnx_model_dir.parent.name
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
@@ -134,7 +162,7 @@ def main():
             "step_trigger": lambda step: step == args_cli.video_start_step,
             "video_length": args_cli.video_length,
             "disable_logger": True,
-            "name_prefix": f"model_{resume_path.split('_')[-1].split('.')[0]}",
+            "name_prefix": f"model_{model_label}",
         }
         print("[INFO] Recording videos during playing.")
         print_dict(video_kwargs, nesting=4)
@@ -148,16 +176,18 @@ def main():
     env = InstinctRlVecEnvWrapper(env)
 
     # load previously trained model
-    ppo_runner = OnPolicyRunner(env, agent_cfg_dict, log_dir=None, device=agent_cfg.device)
-    if agent_cfg.load_run is not None:
-        print(f"[INFO]: Loading model checkpoint from: {resume_path}")
-        ppo_runner.load(resume_path)
+    policy = None
+    if not direct_onnx:
+        ppo_runner = OnPolicyRunner(env, agent_cfg_dict, log_dir=None, device=agent_cfg.device)
+        if agent_cfg.load_run is not None:
+            print(f"[INFO]: Loading model checkpoint from: {resume_path}")
+            ppo_runner.load(resume_path)
 
-    # obtain the trained policy for inference
-    if args_cli.sample:
-        policy = ppo_runner.alg.actor_critic.act
-    else:
-        policy = ppo_runner.get_inference_policy(device=env.unwrapped.device)
+        # obtain the trained policy for inference
+        if args_cli.sample:
+            policy = ppo_runner.alg.actor_critic.act
+        else:
+            policy = ppo_runner.get_inference_policy(device=env.unwrapped.device)
 
     # export policy to onnx/jit
     if agent_cfg.load_run is not None:
@@ -175,7 +205,7 @@ def main():
 
         # NOTE: This is only applicable with parkour task
         onnx_policy = load_parkour_onnx_model(
-            model_dir=os.path.join(log_dir, "exported"),
+            model_dir=onnx_model_dir if direct_onnx else os.path.join(log_dir, "exported"),
             get_subobs_func=lambda obs: get_subobs_by_components(
                 obs,
                 agent_cfg.policy.encoder_configs.depth_encoder.component_names,
@@ -199,26 +229,45 @@ def main():
                 ),
             ),
         )
+        print(f"[INFO]: Loaded parkour ONNX inference sessions from: {onnx_model_dir if direct_onnx else export_model_dir}")
 
     override_command = torch.zeros(env.num_envs, 3, device=env.device)
     command_obs_slice = get_obs_slice(env.get_obs_segments(), "velocity_commands")
+    dashboard = None
+    if not args_cli.headless and not args_cli.no_depth_viewer:
+        from play_dashboard import QtDepthDashboard
+
+        dashboard = QtDepthDashboard()
+
+    def update_dashboard():
+        if dashboard is None:
+            return
+        camera_output = env.unwrapped.scene["camera"].data.output
+        depth_key = "distance_to_image_plane_noised"
+        if depth_key not in camera_output:
+            depth_key = "distance_to_image_plane"
+        depth_image = camera_output[depth_key][0, ..., 0].detach().cpu().numpy()
+        if args_cli.keyboard_control:
+            command = override_command[0]
+        else:
+            command = env.unwrapped.command_manager.get_command("base_velocity")[0]
+        robot = env.unwrapped.scene["robot"]
+        actual = torch.cat((robot.data.root_lin_vel_b[0, :2], robot.data.root_ang_vel_b[0, 2:3]))
+        dashboard.update(depth_image, command.detach().cpu().numpy(), actual.detach().cpu().numpy())
 
     def on_keyboard_input(e):
+        if e.type not in (KeyboardEventType.KEY_PRESS, KeyboardEventType.KEY_REPEAT):
+            return
         if e.input == carb.input.KeyboardInput.W:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 0] += args_cli.keyboard_linvel_step
-        if e.input == carb.input.KeyboardInput.S:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 2] = 0.0
-        if e.input == carb.input.KeyboardInput.F:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 2] = args_cli.keyboard_angvel
-        if e.input == carb.input.KeyboardInput.G:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 2] = -args_cli.keyboard_angvel
-        if e.input == carb.input.KeyboardInput.X:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:] = 0.0
+            override_command.copy_(apply_keyboard_velocity_delta(override_command, linear_delta=args_cli.keyboard_linvel_step))
+        elif e.input == carb.input.KeyboardInput.S:
+            override_command.copy_(apply_keyboard_velocity_delta(override_command, linear_delta=-args_cli.keyboard_linvel_step))
+        elif e.input == carb.input.KeyboardInput.A:
+            override_command.copy_(apply_keyboard_velocity_delta(override_command, yaw_delta=args_cli.keyboard_angvel))
+        elif e.input == carb.input.KeyboardInput.D:
+            override_command.copy_(apply_keyboard_velocity_delta(override_command, yaw_delta=-args_cli.keyboard_angvel))
+        elif e.input == carb.input.KeyboardInput.X:
+            override_command.zero_()
 
     app_window = omni.appwindow.get_default_app_window()
     keyboard = app_window.get_keyboard()
@@ -227,6 +276,7 @@ def main():
 
     # reset environment
     obs, _ = env.get_observations()
+    update_dashboard()
     timestep = 0
     # simulate environment
     while simulation_app.is_running():
@@ -235,21 +285,25 @@ def main():
             # agent stepping
             if args_cli.keyboard_control:
                 obs[:, command_obs_slice[0]] = override_command.repeat(1, command_obs_slice[1][0] // 3)
-            actions = policy(obs)
             if args_cli.useonnx:
-                torch_actions = actions
                 actions = onnx_policy(obs)
-                if (actions - torch_actions).abs().max() > 1e-5:
+                if policy is not None:
+                    torch_actions = policy(obs)
+                if policy is not None and (actions - torch_actions).abs().max() > 1e-5:
                     print(
                         "[INFO]: ONNX model and PyTorch model have a difference of"
                         f" {(actions - torch_actions).abs().max()} in actions at joint"
                         f" {((actions - torch_actions).abs() > 1e-5).nonzero(as_tuple=True)[0]}"
                     )
+            else:
+                actions = policy(obs)
             if timestep < args_cli.zero_act_until:
                 actions[:] = 0.0
             # env stepping
             obs, rewards, dones, infos = env.step(actions)
         timestep += 1
+        if timestep % 5 == 0:
+            update_dashboard()
 
         # exit the loop if video_length is meet
         if args_cli.video:
@@ -265,7 +319,7 @@ def main():
             [
                 "code",
                 "-r",
-                os.path.join(log_dir, "videos", "play", f"model_{resume_path.split('_')[-1].split('.')[0]}-step-0.mp4"),
+                os.path.join(log_dir, "videos", "play", f"model_{model_label}-step-0.mp4"),
             ]
         )
 

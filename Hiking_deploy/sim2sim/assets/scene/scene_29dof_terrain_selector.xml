@@ -1,0 +1,109 @@
+<mujoco model="g1_29dof centered four-direction terrain course">
+  <include file="g1.xml"/>
+  <statistic center="0 0 0" extent="14.0"/>
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-130" elevation="-20"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <material name="ground" rgba="0.32 0.48 0.34 1"/>
+    <material name="stairs" rgba="0.55 0.55 0.60 1"/>
+    <material name="gap_floor" rgba="0.20 0.30 0.40 1"/>
+    <material name="slope" rgba="0.62 0.47 0.28 1"/>
+    <material name="pebble" rgba="0.38 0.34 0.27 1"/>
+    <!-- 6 m square base, 3 m horizontal run to each edge, 15 degree faces. -->
+    <mesh name="slope_pyramid_mesh"
+      vertex="-3 -8.5 0  3 -8.5 0  3 -2.5 0  -3 -2.5 0  0 -5.5 0.80385"
+      face="0 4 1  1 4 2  2 4 3  3 4 0"/>
+  </asset>
+  <!-- Pebble field disabled temporarily to reduce rendering load.
+  <include file="generated/pebble_field_seed_20261019.xml"/>
+  -->
+  <default><geom friction="1.0"/></default>
+  <worldbody>
+    <light pos="0 0 12" dir="0 0 -1" directional="true"/>
+    <!-- 20 m x 20 m course centred on the initial pose; safety floor below every feature. -->
+    <geom name="outer_ground" type="plane" size="0 0 0.05" pos="0 0 -1.0" material="gap_floor"/>
+
+    <!-- Flat tiles leave the rear depression and +y square-gap ring open. -->
+    <geom name="ground_front" type="box" size="6.0 6.875 0.5" pos="4.0 -3.125 -0.5" material="ground"/>
+    <geom name="ground_rear_south" type="box" size="4.0 4.25 0.5" pos="-6.0 -5.75 -0.5" material="ground"/>
+    <geom name="ground_rear_north" type="box" size="4.0 1.125 0.5" pos="-6.0 2.625 -0.5" material="ground"/>
+    <geom name="ground_far_west" type="box" size="1.0 1.5 0.5" pos="-9.0 0 -0.5" material="ground"/>
+    <geom name="ground_north" type="box" size="10.0 1.375 0.5" pos="0 8.625 -0.5" material="ground"/>
+    <!-- Four ground strips keep the surrounding approach continuous without overlapping the basin floor. -->
+    <geom name="ground_gap_west_left" type="box" size="1.50 1.75 0.5" pos="-8.50 5.5 -0.5" material="ground"/>
+    <geom name="ground_gap_west_right" type="box" size="1.175 1.75 0.5" pos="-2.825 5.5 -0.5" material="ground"/>
+    <geom name="ground_gap_west_south" type="box" size="1.50 0.125 0.5" pos="-5.50 3.875 -0.5" material="ground"/>
+    <geom name="ground_gap_west_north" type="box" size="1.50 0.125 0.5" pos="-5.50 7.125 -0.5" material="ground"/>
+    <geom name="ground_gap_east" type="box" size="4.175 1.75 0.5" pos="5.825 5.5 -0.5" material="ground"/>
+
+    <!-- Pebble basin disabled temporarily to reduce rendering load.
+    <geom name="pebble_basin_floor" type="box" size="1.5 1.5 0.10" pos="-5.5 5.5 -0.10"
+      material="pebble" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_wall_west" type="box" size="0.04 1.42 0.15" pos="-6.96 5.50 0.15"
+      material="pebble" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_wall_east" type="box" size="0.04 1.42 0.15" pos="-4.04 5.50 0.15"
+      material="pebble" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_wall_south" type="box" size="1.50 0.04 0.15" pos="-5.50 4.04 0.15"
+      material="pebble" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_wall_north" type="box" size="1.50 0.04 0.15" pos="-5.50 6.96 0.15"
+      material="pebble" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_step_west" type="box" size="0.15 1.20 0.075" pos="-7.15 5.50 0.075"
+      material="stairs" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_step_east" type="box" size="0.15 1.20 0.075" pos="-3.85 5.50 0.075"
+      material="stairs" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_step_south" type="box" size="1.50 0.15 0.075" pos="-5.50 3.85 0.075"
+      material="stairs" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    <geom name="pebble_basin_step_north" type="box" size="1.50 0.15 0.075" pos="-5.50 7.15 0.075"
+      material="stairs" contype="1" conaffinity="1" friction="1.30 0.03 0.001" solref="0.002 1" solimp="0.97 0.995 0.001"/>
+    -->
+
+    <!-- +y: 0.3 m wide/deep square gap around a 2.7 m centre platform. -->
+    <geom name="gap_floor" type="box" size="1.65 1.65 0.25" pos="0 5.5 -0.75" material="gap_floor"/>
+    <geom name="gap_central_platform" type="box" size="1.35 1.35 0.5" pos="0 5.5 -0.5" material="ground"/>
+
+    <!-- +x: eight 0.30 m treads rise by 0.075 m, then descend. -->
+    <geom name="forward_step_up_1" type="box" size="0.15 1.5 0.0375" pos="2.15 0 0.0375" material="stairs"/>
+    <geom name="forward_step_up_2" type="box" size="0.15 1.5 0.0750" pos="2.45 0 0.0750" material="stairs"/>
+    <geom name="forward_step_up_3" type="box" size="0.15 1.5 0.1125" pos="2.75 0 0.1125" material="stairs"/>
+    <geom name="forward_step_up_4" type="box" size="0.15 1.5 0.1500" pos="3.05 0 0.1500" material="stairs"/>
+    <geom name="forward_step_up_5" type="box" size="0.15 1.5 0.1875" pos="3.35 0 0.1875" material="stairs"/>
+    <geom name="forward_step_up_6" type="box" size="0.15 1.5 0.2250" pos="3.65 0 0.2250" material="stairs"/>
+    <geom name="forward_step_up_7" type="box" size="0.15 1.5 0.2625" pos="3.95 0 0.2625" material="stairs"/>
+    <geom name="forward_step_up_8" type="box" size="0.15 1.5 0.3000" pos="4.25 0 0.3000" material="stairs"/>
+    <geom name="forward_top_platform" type="box" size="0.60 1.5 0.3000" pos="5.00 0 0.3000" material="stairs"/>
+    <geom name="forward_step_down_1" type="box" size="0.15 1.5 0.2625" pos="5.75 0 0.2625" material="stairs"/>
+    <geom name="forward_step_down_2" type="box" size="0.15 1.5 0.2250" pos="6.05 0 0.2250" material="stairs"/>
+    <geom name="forward_step_down_3" type="box" size="0.15 1.5 0.1875" pos="6.35 0 0.1875" material="stairs"/>
+    <geom name="forward_step_down_4" type="box" size="0.15 1.5 0.1500" pos="6.65 0 0.1500" material="stairs"/>
+    <geom name="forward_step_down_5" type="box" size="0.15 1.5 0.1125" pos="6.95 0 0.1125" material="stairs"/>
+    <geom name="forward_step_down_6" type="box" size="0.15 1.5 0.0750" pos="7.25 0 0.0750" material="stairs"/>
+    <geom name="forward_step_down_7" type="box" size="0.15 1.5 0.0375" pos="7.55 0 0.0375" material="stairs"/>
+    <geom name="forward_step_down_8" type="box" size="0.15 1.5 0.0001" pos="7.85 0 0.0001" material="stairs"/>
+
+    <!-- -x: symmetric concave pyramid, descending to -0.60 m then rising. -->
+    <geom name="rear_step_down_1" type="box" size="0.15 1.5 0.4625" pos="-2.15 0 -0.5375" material="stairs"/>
+    <geom name="rear_step_down_2" type="box" size="0.15 1.5 0.4250" pos="-2.45 0 -0.5750" material="stairs"/>
+    <geom name="rear_step_down_3" type="box" size="0.15 1.5 0.3875" pos="-2.75 0 -0.6125" material="stairs"/>
+    <geom name="rear_step_down_4" type="box" size="0.15 1.5 0.3500" pos="-3.05 0 -0.6500" material="stairs"/>
+    <geom name="rear_step_down_5" type="box" size="0.15 1.5 0.3125" pos="-3.35 0 -0.6875" material="stairs"/>
+    <geom name="rear_step_down_6" type="box" size="0.15 1.5 0.2750" pos="-3.65 0 -0.7250" material="stairs"/>
+    <geom name="rear_step_down_7" type="box" size="0.15 1.5 0.2375" pos="-3.95 0 -0.7625" material="stairs"/>
+    <geom name="rear_step_down_8" type="box" size="0.15 1.5 0.2000" pos="-4.25 0 -0.8000" material="stairs"/>
+    <geom name="rear_bottom_platform" type="box" size="0.60 1.5 0.2000" pos="-5.00 0 -0.8000" material="stairs"/>
+    <geom name="rear_step_up_1" type="box" size="0.15 1.5 0.2375" pos="-5.75 0 -0.7625" material="stairs"/>
+    <geom name="rear_step_up_2" type="box" size="0.15 1.5 0.2750" pos="-6.05 0 -0.7250" material="stairs"/>
+    <geom name="rear_step_up_3" type="box" size="0.15 1.5 0.3125" pos="-6.35 0 -0.6875" material="stairs"/>
+    <geom name="rear_step_up_4" type="box" size="0.15 1.5 0.3500" pos="-6.65 0 -0.6500" material="stairs"/>
+    <geom name="rear_step_up_5" type="box" size="0.15 1.5 0.3875" pos="-6.95 0 -0.6125" material="stairs"/>
+    <geom name="rear_step_up_6" type="box" size="0.15 1.5 0.4250" pos="-7.25 0 -0.5750" material="stairs"/>
+    <geom name="rear_step_up_7" type="box" size="0.15 1.5 0.4625" pos="-7.55 0 -0.5375" material="stairs"/>
+    <geom name="rear_step_up_8" type="box" size="0.15 1.5 0.4999" pos="-7.85 0 -0.5001" material="stairs"/>
+
+    <!-- -y: convex square pyramid with four 15 degree faces. -->
+    <geom name="slope_pyramid_15deg" type="mesh" mesh="slope_pyramid_mesh" material="slope"/>
+  </worldbody>
+</mujoco>

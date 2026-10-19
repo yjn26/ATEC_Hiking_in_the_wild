@@ -24,8 +24,9 @@ commands can physically never reach a real robot.
 
 Keyboard (in the MuJoCo viewer window; letters are avoided because the viewer
 binds many of them to visualization toggles):
-    Up arrow   : forward ON                 (ly = 1 -> vx = +0.5 m/s)
+    Up arrow   : increase vx by 0.2 m/s    (up to +1.0 m/s)
     Down arrow : STOP (zero all velocities)
+    Space      : pause / resume physics (topics keep publishing frozen data)
     Left/Right : turn left / right — 1s pulse per press, then auto-zero
     7          : R1 button (cold_start -> stand, parkour -> stand)
     6          : L1 button (stand -> parkour)
@@ -56,6 +57,7 @@ import json
 import os
 import threading
 import time
+from typing import NamedTuple
 
 import mujoco
 import mujoco.viewer
@@ -67,8 +69,21 @@ from std_msgs.msg import Bool
 from unitree_go.msg import WirelessController
 from unitree_hg.msg import IMUState, LowCmd, LowState
 
-DEFAULT_SCENE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets/scene/scene_29dof_stairs.xml")
+DEFAULT_SCENE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets/scene/scene_29dof_terrain_selector.xml")
 NUM_MOTORS = 29
+
+
+class TerrainMode(NamedTuple):
+    """A fixed scene region and its pelvis spawn pose."""
+
+    name: str
+    spawn: tuple[float, float, float]
+
+
+DEFAULT_TERRAIN_MODE = "1"
+TERRAIN_MODES = {
+    "1": TerrainMode(name="centered four-direction course", spawn=(0.0, 0.0, 0.76)),
+}
 
 # Unitree wireless controller bit masks (robot_cfgs.UnitreeWirelessButtons)
 BTN_R1 = 0x0001
@@ -100,6 +115,9 @@ class G1MujocoBridge(Node):
     def __init__(self, args):
         super().__init__("g1_mujoco_bridge")
         self.args = args
+        self.terrain_modes = TERRAIN_MODES
+        self.terrain_mode = args.terrain_mode
+        self.simulation_paused = False
 
         # ---------------- MuJoCo model ----------------
         if args.scene.endswith(".mjb"):
@@ -205,6 +223,11 @@ class G1MujocoBridge(Node):
             f"physics {1/args.timestep:.0f}Hz, depth {args.depth_width}x{args.depth_height}"
             f"@{args.depth_fps}fps on ZMQ :{args.zmq_port}, gantry={'ON' if self.gantry_on else 'OFF'}"
         )
+        terrain = self.terrain_modes[self.terrain_mode]
+        self.get_logger().info(
+            f"terrain mode {self.terrain_mode}: {terrain.name}, spawn={tuple(self.spawn_pos)}; "
+            "front=stairs, rear=concave stairs, +y=gap, -y=15 degree convex pyramid"
+        )
 
     # ------------------------------------------------------------------
     # /lowcmd -> motor targets
@@ -269,12 +292,18 @@ class G1MujocoBridge(Node):
         self.data.qpos[7 : 7 + NUM_MOTORS] = self.hold_q
         self.data.qvel[:] = 0.0
         self.data.xfrc_applied[:] = 0.0
-        self.base_height = float(self.args.spawn_height)
+        self.base_height = float(self.spawn_pos[2])
         self.gantry_xy = self.spawn_pos[:2].copy()
         self.gantry_on = True
         self.joy_ly = self.joy_lx = self.joy_rx = 0.0
         self._turn_until = 0.0
         self.btn_until.clear()
+        with self.cmd_lock:
+            self.cmd_q.fill(0.0)
+            self.cmd_dq.fill(0.0)
+            self.cmd_kp.fill(0.0)
+            self.cmd_kd.fill(0.0)
+            self.cmd_tau.fill(0.0)
         # Ask deploy to leave parkour for stand while the bridge suppresses
         # stale motor targets long enough for that request to be consumed.
         # The remaining stages mirror Enter -> 7 -> 6 -> 8 so a reset does
@@ -285,8 +314,22 @@ class G1MujocoBridge(Node):
         self._reset_recovery_l1_at = now + 2.0
         self._reset_recovery_release_at = now + 4.0
         mujoco.mj_forward(self.model, self.data)
-        print("[bridge] R forced reset to spawn; restoring stand -> parkour -> free motion")
+        print("[bridge] reset to spawn; restoring stand -> parkour -> free motion")
         return True
+
+    def select_terrain_mode(self, mode: str) -> None:
+        """Move to a registered terrain spawn without rebuilding the model."""
+        terrain = self.terrain_modes.get(mode)
+        if terrain is None:
+            raise ValueError(f"unknown terrain mode {mode!r}")
+        self.terrain_mode = mode
+        self.spawn_pos = np.asarray(terrain.spawn, dtype=np.float64)
+        self.base_height = float(self.spawn_pos[2])
+        print(
+            f"[bridge] terrain mode {mode}: {terrain.name}; "
+            f"spawn={tuple(self.spawn_pos)}; starting safe recovery"
+        )
+        self.reset_to_spawn_if_standing()
 
     def _advance_reset_recovery(self, now: float) -> None:
         """Finish the automatic R recovery without overlapping button pulses."""
@@ -306,27 +349,31 @@ class G1MujocoBridge(Node):
             (row, col), self._teleport_target = self._teleport_target, None
             self._teleport_to_row(row, col)
         now = time.time()
-        self._advance_reset_recovery(now)
-        q = self.data.qpos[7 : 7 + NUM_MOTORS]
-        dq = self.data.qvel[6 : 6 + NUM_MOTORS]
-        recovery_active = now < self._recovery_until
-        with self.cmd_lock:
-            if self.lowcmd_count == 0 or recovery_active:
-                # damped hold at spawn pose until the deploy stack takes over
-                tau = self.hold_kp * (self.hold_q - q) - self.hold_kd * dq
+        # Paused: freeze physics and control while the publish path below keeps
+        # serving the deploy stack from the frozen MjData (see the space-key
+        # design note in docs/superpowers/specs/).
+        if not self.simulation_paused:
+            self._advance_reset_recovery(now)
+            q = self.data.qpos[7 : 7 + NUM_MOTORS]
+            dq = self.data.qvel[6 : 6 + NUM_MOTORS]
+            recovery_active = now < self._recovery_until
+            with self.cmd_lock:
+                if self.lowcmd_count == 0 or recovery_active:
+                    # damped hold at spawn pose until the deploy stack takes over
+                    tau = self.hold_kp * (self.hold_q - q) - self.hold_kd * dq
+                else:
+                    tau = self.cmd_kp * (self.cmd_q - q) + self.cmd_kd * (self.cmd_dq - dq) + self.cmd_tau
+            tau = np.clip(tau, self.motor_ctrlrange[:, 0], self.motor_ctrlrange[:, 1])
+            self.data.ctrl[:] = tau
+
+            if self.gantry_on:
+                self._apply_gantry()
             else:
-                tau = self.cmd_kp * (self.cmd_q - q) + self.cmd_kd * (self.cmd_dq - dq) + self.cmd_tau
-        tau = np.clip(tau, self.motor_ctrlrange[:, 0], self.motor_ctrlrange[:, 1])
-        self.data.ctrl[:] = tau
+                self.data.xfrc_applied[self.torso_bid][:] = 0.0
+                self.data.xfrc_applied[self.pelvis_bid][:] = 0.0
 
-        if self.gantry_on:
-            self._apply_gantry()
-        else:
-            self.data.xfrc_applied[self.torso_bid][:] = 0.0
-            self.data.xfrc_applied[self.pelvis_bid][:] = 0.0
-
-        mujoco.mj_step(self.model, self.data)
-        self._sim_steps += 1
+            mujoco.mj_step(self.model, self.data)
+            self._sim_steps += 1
 
         if not rclpy.ok():
             return
@@ -426,6 +473,24 @@ class G1MujocoBridge(Node):
         msg.keys = keys
         self.joy_pub.publish(msg)
 
+    def velocity_status(self) -> tuple[float, float]:
+        """Return commanded and measured forward velocity in the pelvis frame."""
+        command_vx = self.joy_ly * self.args.forward_speed
+        pelvis_rot_w = self.data.xmat[self.pelvis_bid].reshape(3, 3)
+        actual_vx = float((pelvis_rot_w.T @ self.data.qvel[:3])[0])
+        return float(command_vx), actual_vx
+
+    def update_viewer_overlay(self, viewer) -> None:
+        command_vx, actual_vx = self.velocity_status()
+        viewer.set_texts(
+            (
+                None,
+                mujoco.mjtGridPos.mjGRID_TOPLEFT,
+                "Velocity",
+                f"CMD vx  {command_vx:+.2f} m/s\nACT vx  {actual_vx:+.2f} m/s",
+            )
+        )
+
     def _publish_depth(self):
         self.renderer.update_scene(self.data, camera="depth_camera")
         depth_m = self.renderer.render()  # float32 metres
@@ -438,13 +503,17 @@ class G1MujocoBridge(Node):
     def key_callback(self, keycode: int):
         # NOTE: letter keys are avoided on purpose — the MuJoCo viewer binds
         # many letters to visualization toggles (W=wireframe, R=reflection,
-        # S=shadow, ...). Arrow keys and digits 6-9 are free (digit toggles
-        # only exist for geom groups 0-5).
+        # S=shadow, ...).  The selector scene uses geom group 0 only, so the
+        # viewer's group-1/group-2 toggles do not hide either terrain.
         now = time.time()
         c = chr(keycode).upper() if 0 <= keycode < 256 else ""
-        if keycode == 265:  # Up arrow
-            self.joy_ly = 1.0
-            print("[bridge] forward ON  (vx -> +0.5 m/s once in parkour)")
+        if keycode == 32:  # Space : pause / resume the physics loop
+            self.simulation_paused = not self.simulation_paused
+            print(f"[bridge] {'PAUSED' if self.simulation_paused else 'RESUMED'} (space)")
+        elif keycode == 265:  # Up arrow
+            speed_step = min(0.2, self.args.forward_speed)
+            self.joy_ly = min(1.0, self.joy_ly + speed_step / self.args.forward_speed)
+            print(f"[bridge] forward command vx = +{self.joy_ly * self.args.forward_speed:.1f} m/s")
         elif keycode == 264:  # Down arrow
             self.joy_ly = self.joy_lx = self.joy_rx = 0.0
             print("[bridge] STOP (all velocity zeroed)")
@@ -471,6 +540,8 @@ class G1MujocoBridge(Node):
                 self.reset_to_spawn_if_standing()
             else:
                 print("[bridge] R repeat ignored during reset debounce")
+        elif c in self.terrain_modes:
+            self.select_terrain_mode(c)
         elif c == "9":
             self.gantry_on = True
             self.gantry_xy = self.data.qpos[0:2].copy()  # re-anchor at current spot
@@ -521,18 +592,24 @@ class G1MujocoBridge(Node):
 
 def main():
     parser = argparse.ArgumentParser(description="MuJoCo G1 bridge for instinct_onboard sim2sim")
-    parser.add_argument("--scene", type=str, default=DEFAULT_SCENE, help="MJCF scene (default: gx stair scene, 0.30m tread = training stairs)")
+    parser.add_argument("--scene", type=str, default=DEFAULT_SCENE, help="MJCF scene (default: selectable stairs and square-gap scene)")
+    parser.add_argument("--terrain-mode", choices=tuple(TERRAIN_MODES), default=DEFAULT_TERRAIN_MODE, help="initial terrain mode (1=centered four-direction course)")
     parser.add_argument("--zmq_port", type=int, default=5556, help="ZMQ depth broadcast port (default 5556; the real robot uses 5555)")
     parser.add_argument("--depth_width", type=int, default=848)
     parser.add_argument("--depth_height", type=int, default=480)
     parser.add_argument("--depth_fps", type=float, default=30.0)
     parser.add_argument("--timestep", type=float, default=0.002, help="physics dt (default 0.002 = 500Hz; lowstate publishes every step)")
-    parser.add_argument("--spawn_height", type=float, default=0.76, help="pelvis spawn z; 0.76 puts the feet on the ground at the default pose so the legs bear weight (like the real start procedure)")
-    parser.add_argument("--spawn_x", type=float, default=0.0, help="pelvis spawn x (use the value printed by gen_training_terrain.py)")
-    parser.add_argument("--spawn_y", type=float, default=0.0, help="pelvis spawn y")
+    parser.add_argument("--forward-speed", type=float, default=1.0, help="forward command shown in the viewer; must match deploy --lin_vel_range")
+    parser.add_argument("--spawn_height", type=float, default=None, help="optional initial pelvis spawn z override")
+    parser.add_argument("--spawn_x", type=float, default=None, help="optional initial pelvis spawn x override")
+    parser.add_argument("--spawn_y", type=float, default=None, help="optional initial pelvis spawn y override")
     parser.add_argument("--no-gantry", dest="gantry", action="store_false", default=True, help="start without the virtual gantry")
     parser.add_argument("--headless", action="store_true", help="no viewer window (keyboard unavailable; drive /wirelesscontroller externally)")
     args = parser.parse_args()
+    terrain_spawn = TERRAIN_MODES[args.terrain_mode].spawn
+    args.spawn_x = terrain_spawn[0] if args.spawn_x is None else args.spawn_x
+    args.spawn_y = terrain_spawn[1] if args.spawn_y is None else args.spawn_y
+    args.spawn_height = terrain_spawn[2] if args.spawn_height is None else args.spawn_height
 
     rclpy.init()
     bridge = G1MujocoBridge(args)
@@ -580,6 +657,7 @@ def main():
                             # aim the free camera at the robot so the view doesn't jump
                             viewer.cam.lookat[:] = bridge.data.qpos[0:3]
                     if bridge._sim_steps % sync_every == 0:
+                        bridge.update_viewer_overlay(viewer)
                         viewer.sync()
                     next_t += dt
                     sleep = next_t - time.time()

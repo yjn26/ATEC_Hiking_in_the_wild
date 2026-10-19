@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000">
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse"><path d="M0 0L8 4L0 8Z" fill="#263238"/></marker>
+    <style>
+      .title{font:700 27px sans-serif;fill:#17252a}.head{font:700 19px sans-serif;fill:#17252a}.label{font:14px sans-serif;fill:#17252a}.small{font:12px sans-serif;fill:#405056}.dim{stroke:#263238;stroke-width:1.5;marker-start:url(#a);marker-end:url(#a)}.ext{stroke:#718287;stroke-width:1;stroke-dasharray:4 4}.grid{stroke:#d7e0e2;stroke-width:1}
+    </style>
+  </defs>
+  <rect width="1400" height="1000" fill="#f7fafb"/>
+  <text x="65" y="52" class="title">Centered Four-Direction Terrain Course</text>
+  <text x="65" y="78" class="label">Top view. Spawn at (0, 0). +x is forward; +y is the left-side gap; -y is the right-side slope. Units: metres.</text>
+
+  <!-- 20 m square: 35 px/m; scene coordinates [-10,10]. -->
+  <g transform="translate(90 125)">
+    <rect width="700" height="700" fill="#bddbbd" stroke="#314a3a" stroke-width="3"/>
+    <g class="grid"><path d="M35 0V700M70 0V700M105 0V700M140 0V700M175 0V700M210 0V700M245 0V700M280 0V700M315 0V700M350 0V700M385 0V700M420 0V700M455 0V700M490 0V700M525 0V700M560 0V700M595 0V700M630 0V700M665 0V700"/><path d="M0 35H700M0 70H700M0 105H700M0 140H700M0 175H700M0 210H700M0 245H700M0 280H700M0 315H700M0 350H700M0 385H700M0 420H700M0 455H700M0 490H700M0 525H700M0 560H700M0 595H700M0 630H700M0 665H700"/></g>
+
+    <!-- Dynamic pebble basin: x=-7..-4, y=4..7. -->
+    <g stroke="#5c513d">
+      <!-- 0.30 m external approach steps, shown at 35 px/m. -->
+      <rect id="pebble_basin_step_west_top_view" x="94.5" y="115.5" width="10.5" height="84" fill="#b6adb8" stroke-width="1"/>
+      <rect id="pebble_basin_step_east_top_view" x="210" y="115.5" width="10.5" height="84" fill="#b6adb8" stroke-width="1"/>
+      <rect id="pebble_basin_step_south_top_view" x="105" y="210" width="105" height="10.5" fill="#b6adb8" stroke-width="1"/>
+      <rect id="pebble_basin_step_north_top_view" x="105" y="94.5" width="105" height="10.5" fill="#b6adb8" stroke-width="1"/>
+      <rect id="pebble_basin_top_view" x="105" y="105" width="105" height="105" fill="#c9b88a" stroke-width="2"/>
+      <!-- Four static 0.08 m walls surround the dynamic inner field. -->
+      <rect id="pebble_basin_wall_west_top_view" x="105" y="107.8" width="2.8" height="99.4" fill="#5c513d" stroke-width="0"/>
+      <rect id="pebble_basin_wall_east_top_view" x="207.2" y="107.8" width="2.8" height="99.4" fill="#5c513d" stroke-width="0"/>
+      <rect id="pebble_basin_wall_south_top_view" x="105" y="207.2" width="105" height="2.8" fill="#5c513d" stroke-width="0"/>
+      <rect id="pebble_basin_wall_north_top_view" x="105" y="105" width="105" height="2.8" fill="#5c513d" stroke-width="0"/>
+      <g fill="#6f6250" stroke-width="1">
+        <ellipse cx="123" cy="125" rx="10" ry="6"/><ellipse cx="151" cy="123" rx="7" ry="10"/><ellipse cx="184" cy="126" rx="12" ry="7"/>
+        <ellipse cx="135" cy="151" rx="12" ry="7"/><ellipse cx="168" cy="150" rx="9" ry="12"/><ellipse cx="195" cy="157" rx="7" ry="10"/>
+        <ellipse cx="118" cy="183" rx="7" ry="12"/><ellipse cx="151" cy="181" rx="12" ry="7"/><ellipse cx="184" cy="187" rx="10" ry="9"/>
+      </g>
+      <path d="M195 195V125" stroke="#263238" stroke-width="2" marker-end="url(#a)"/>
+    </g>
+    <path d="M157.5 210V222" stroke="#5c513d" stroke-width="1.5"/>
+    <text x="105" y="241" class="head">Dynamic pebble basin</text>
+    <text x="105" y="260" class="small">3.0 m x 3.0 m outer basin footprint</text>
+
+    <!-- Spawn. -->
+    <circle cx="350" cy="350" r="8" fill="#e63946" stroke="#7d1320" stroke-width="2"/><text x="365" y="343" class="label">spawn (0, 0)</text>
+
+    <!-- Forward +x: x=2..8, y=-1.5..1.5. -->
+    <g fill="#b6adb8" stroke="#564e58" stroke-width="1.3">
+      <rect x="420" y="297.5" width="10.5" height="105"/><rect x="430.5" y="297.5" width="10.5" height="105"/><rect x="441" y="297.5" width="10.5" height="105"/><rect x="451.5" y="297.5" width="10.5" height="105"/><rect x="462" y="297.5" width="10.5" height="105"/><rect x="472.5" y="297.5" width="10.5" height="105"/><rect x="483" y="297.5" width="10.5" height="105"/><rect x="493.5" y="297.5" width="10.5" height="105"/>
+      <rect x="504" y="297.5" width="42" height="105" fill="#928692"/>
+      <rect x="546" y="297.5" width="10.5" height="105"/><rect x="556.5" y="297.5" width="10.5" height="105"/><rect x="567" y="297.5" width="10.5" height="105"/><rect x="577.5" y="297.5" width="10.5" height="105"/><rect x="588" y="297.5" width="10.5" height="105"/><rect x="598.5" y="297.5" width="10.5" height="105"/><rect x="609" y="297.5" width="10.5" height="105"/><rect x="619.5" y="297.5" width="10.5" height="105"/>
+    </g>
+    <text x="490" y="284" class="head" text-anchor="middle">Forward +x: up then down stairs</text>
+
+    <!-- Rear -x: x=-2..-8, y=-1.5..1.5. -->
+    <g fill="#8c9aa5" stroke="#44515c" stroke-width="1.3">
+      <rect x="269.5" y="297.5" width="10.5" height="105"/><rect x="259" y="297.5" width="10.5" height="105"/><rect x="248.5" y="297.5" width="10.5" height="105"/><rect x="238" y="297.5" width="10.5" height="105"/><rect x="227.5" y="297.5" width="10.5" height="105"/><rect x="217" y="297.5" width="10.5" height="105"/><rect x="206.5" y="297.5" width="10.5" height="105"/><rect x="196" y="297.5" width="10.5" height="105"/>
+      <rect x="154" y="297.5" width="42" height="105" fill="#62717e"/>
+      <rect x="143.5" y="297.5" width="10.5" height="105"/><rect x="133" y="297.5" width="10.5" height="105"/><rect x="122.5" y="297.5" width="10.5" height="105"/><rect x="112" y="297.5" width="10.5" height="105"/><rect x="101.5" y="297.5" width="10.5" height="105"/><rect x="91" y="297.5" width="10.5" height="105"/><rect x="80.5" y="297.5" width="10.5" height="105"/><rect x="70" y="297.5" width="10.5" height="105"/>
+    </g>
+    <text x="175" y="284" class="head" text-anchor="middle">Rear -x: concave stairs</text>
+
+    <!-- +y square gap centred at (0, 5.5). -->
+    <path d="M288.75 96.25H411.25V218.75H288.75ZM306.25 113.75H393.75V201.25H306.25Z" fill="#34495e" fill-rule="evenodd" stroke="#203040" stroke-width="2"/>
+    <rect x="306.25" y="113.75" width="87.5" height="87.5" fill="#91c788" stroke="#314a3a" stroke-width="2"/>
+    <text x="350" y="85" class="head" text-anchor="middle">+y: square gap</text>
+    <text x="350" y="235" class="small" text-anchor="middle">2.5 m centre platform; 0.5 m ring width; 0.5 m deep</text>
+
+    <!-- -y: 6 m square, four-faced convex pyramid. -->
+    <path d="M245 437.5 L455 437.5 L455 647.5 L245 647.5 Z" fill="#bd895b" stroke="#70431f" stroke-width="2"/>
+    <path d="M350 542.5 L245 437.5 M350 542.5 L455 437.5 M350 542.5 L455 647.5 M350 542.5 L245 647.5" stroke="#70431f" stroke-width="1.5"/>
+    <circle cx="350" cy="542.5" r="5" fill="#f7c948" stroke="#70431f" stroke-width="1.5"/>
+    <text x="350" y="675" class="head" text-anchor="middle">-y: 15 degree convex pyramid</text>
+    <text x="350" y="695" class="small" text-anchor="middle">6.0 m x 6.0 m base; 3.0 m run per face; peak z=+0.80 m</text>
+
+    <!-- Dimensions. -->
+    <path class="ext" d="M0 700V748M700 700V748"/><path class="dim" d="M5 738H695"/><text x="350" y="765" class="label" text-anchor="middle">20.0 m x extent</text>
+    <path class="ext" d="M700 0H748M700 700H748"/><path class="dim" d="M738 5V695"/><text x="760" y="350" class="label" transform="rotate(90 760 350)" text-anchor="middle">20.0 m y extent</text>
+    <path class="dim" d="M307 215H393"/><text x="350" y="250" class="label" text-anchor="middle">2.5 m</text>
+    <path class="dim" d="M394 202V219"/><text x="411" y="214" class="small">0.5 m</text>
+    <path class="dim" d="M421 264H629"/><text x="525" y="256" class="small" text-anchor="middle">6.0 m stair course</text>
+    <text x="0" y="718" class="small">x=-10</text><text x="340" y="718" class="small">0</text><text x="680" y="718" class="small">+10</text>
+  </g>
+
+  <g transform="translate(870 145)">
+    <text x="0" y="0" class="head">Vertical dimensions</text>
+    <rect x="0" y="22" width="24" height="18" fill="#bddbbd" stroke="#314a3a"/><text x="36" y="37" class="label">Normal terrain surface: z = 0</text>
+    <rect x="0" y="54" width="24" height="18" fill="#34495e" stroke="#203040"/><text x="36" y="69" class="label">Gap floor: z = -0.5 m</text>
+    <rect x="0" y="86" width="24" height="18" fill="#62717e" stroke="#44515c"/><text x="36" y="101" class="label">Rear stair low platform: z = -0.6 m</text>
+    <rect x="0" y="118" width="24" height="18" fill="#bd895b" stroke="#70431f"/><text x="36" y="133" class="label">Slope peak: z = +0.80 m</text>
+    <rect x="0" y="150" width="24" height="18" fill="#c9b88a" stroke="#5c513d"/><text x="36" y="165" class="label">Dynamic basin walls top: z = +0.30 m</text>
+    <text x="0" y="215" class="head">Course directions</text>
+    <text x="0" y="245" class="label">+x forward: stairs up then down</text>
+    <text x="0" y="273" class="label">-x rear: concave stairs down then up</text>
+    <text x="0" y="301" class="label">+y left: square-gap terrain</text>
+    <text x="0" y="329" class="label">-y right: 15 degree convex pyramid</text>
+    <text x="0" y="357" class="label">x=-7..-4, y=4..7: Dynamic pebble basin</text>
+    <text x="0" y="381" class="small">4 layers; dynamic translation-only pebbles settle and translate</text>
+    <text x="0" y="405" class="small">Static walls; 0.30 m outer one-step approaches</text>
+    <text x="0" y="433" class="small">Stairs: 0.30 m tread, 0.075 m riser, 3.0 m width</text>
+    <text x="0" y="457" class="small">Front peak: +0.60 m; rear low platform: -0.60 m</text>
+    <text x="0" y="508" class="head">Safety floor</text>
+    <text x="0" y="538" class="label">Infinite plane at z = -1.0 m</text>
+    <text x="0" y="564" class="label">It catches falls outside or below the course.</text>
+  </g>
+</svg>
