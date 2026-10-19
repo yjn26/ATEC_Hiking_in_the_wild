@@ -60,6 +60,25 @@ python -m unittest tests.tron2a_10dof.test_asset_contract
 
 ## 后续闸门
 
+## 阶段 2：训练资产导入与锁定关节 PD
+
+### 已实现的离线交付
+
+- `assets/resources/tron2a_10dof/urdf/tron2a_10dof_hold_arms.urdf` 由冻结的 `robot_rl.urdf` 生成；保留 18 个可动关节、mesh 和 collision 节点。
+- `assets/tron2a_10dof.py` 将 10 个腿关节与 8 个锁定关节拆分为独立 actuator；effort/velocity 来自训练 URDF，armature 来自冻结 MJCF。
+- `tools/inspect_imported_robot.py` 可离线检查根 link、关节计数和 mesh 解析；`--isaac` 要求安装 Isaac Lab 后才构造运行时 articulation 配置。
+
+### 运行时验收命令
+
+```bash
+python tools/generate_training_urdf.py
+python tools/inspect_imported_robot.py
+python tools/inspect_imported_robot.py --isaac --headless
+python tools/inspect_imported_robot.py --isaac --headless --official-policy
+```
+
+纯 PD 命令的 10 秒测试只验证 Isaac 导入、18 个关节映射、无 missing mesh、无未匹配 joint regex、无 NaN 和锁定关节目标的持续下发；机器人跌倒是无策略时的预期结果，不以躯干高度作为失败条件。`--official-policy` 使用冻结的官方 `SF_TRON2A` ONNX encoder/policy（来源提交和 SHA256 记录在 `SF_TRON2A_POLICY_MANIFEST.json`）执行 500 Hz 物理步、10 倍降采样的 10 秒回放。该回放必须验证 10 维输出按名称映射、8 个锁定关节保持、无 NaN，且最低躯干高度不低于 `0.55 m`。公开上游当前未提供 `.pt` checkpoint，因此阶段 2 的可执行策略验证使用其公开的 ONNX 文件，而不伪造或替换为自训练模型。
+
 | 阶段 | 进入条件 | 退出条件 |
 | --- | --- | --- |
 | 2 | 阶段 1 契约通过，锁定姿态经机械确认 | Isaac 导入无缺失 mesh、无 NaN，锁定关节可保持 |

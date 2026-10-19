@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "https://github.com/limxdynamics/tron2_rl_deploy_python.git",
+    "commit": "5ff57165550a636db469a2157b783a77fe3ce8db",
+    "model_directory": "controllers/model/SF_TRON2A",
+    "format": "ONNX",
+    "note": "该上游提交未发布 .pt checkpoint；使用其可公开执行的 policy.onnx 和 encoder.onnx。"
+  },
+  "files": {
+    "params.yaml": "731cfbb3dfcdbde06015d202e7bdcd7f35d2ceb827632f6c442f92e5cdf25eef",
+    "policy.onnx": "0b353a087c912c33b9ba690560f3501cf7bf2bf25fde91c07ee2bdfb36502d3a",
+    "encoder.onnx": "5f7e2b8865fda7c284f0dd98b79f5c1d78935c83cbf43bf311d768154937111e"
+  },
+  "control": {
+    "loop_frequency_hz": 500,
+    "decimation": 10,
+    "action_scale_position": 0.25,
+    "leg_stiffness": 159.67,
+    "leg_damping": 10.16,
+    "light_stiffness": 53.22,
+    "light_damping": 3.39
+  },
+  "network": {
+    "encoder_input_size": 420,
+    "encoder_output_size": 3,
+    "policy_input_size": 48,
+    "policy_output_size": 10,
+    "policy_observation_size": 42,
+    "observation_history_length": 10
+  },
+  "action_joint_names": [
+    "proximal_pitch_L_Joint",
+    "proximal_roll_L_Joint",
+    "proximal_yaw_L_Joint",
+    "knee_L_Joint",
+    "ankle_pitch_L_Joint",
+    "proximal_pitch_R_Joint",
+    "proximal_roll_R_Joint",
+    "proximal_yaw_R_Joint",
+    "knee_R_Joint",
+    "ankle_pitch_R_Joint"
+  ],
+  "default_joint_positions": {
+    "proximal_pitch_L_Joint": 0.0,
+    "proximal_roll_L_Joint": 0.0,
+    "proximal_yaw_L_Joint": -3.1415,
+    "knee_L_Joint": 0.0,
+    "ankle_pitch_L_Joint": 0.0,
+    "proximal_pitch_R_Joint": 0.0,
+    "proximal_roll_R_Joint": 0.0,
+    "proximal_yaw_R_Joint": 3.1415,
+    "knee_R_Joint": 0.0,
+    "ankle_pitch_R_Joint": 0.0
+  }
+}
