@@ -84,7 +84,6 @@ import gymnasium as gym
 import torch
 
 import carb.input
-import omni.appwindow
 from carb.input import KeyboardEventType
 from instinct_rl.runners import OnPolicyRunner
 from instinct_rl.utils.utils import get_obs_slice, get_subobs_by_components, get_subobs_size
@@ -334,8 +333,11 @@ def main():
         elif e.input == carb.input.KeyboardInput.X:
             override_command.zero_()
 
-    # NOTE: the default app window does not exist in --headless mode, so WASD is GUI-only.
+    # NOTE: the default app window (omni.appwindow) does not exist in --headless mode,
+    # so the import itself has to stay inside this branch, and WASD is GUI-only.
     if not args_cli.headless:
+        import omni.appwindow
+
         app_window = omni.appwindow.get_default_app_window()
         keyboard = app_window.get_keyboard()
         input = carb.input.acquire_input_interface()
