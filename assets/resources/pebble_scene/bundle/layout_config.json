@@ -31,7 +31,7 @@
   },
   "pebbles": {
     "size_range": [
-      0.02,
+      0.026,
       0.06
     ],
     "axis_ratio_b": [
@@ -42,15 +42,33 @@
       0.5,
       0.8
     ],
-    "coverage": 0.75,
+    "coverage": 0.88,
     "tilt_deg": 20.0,
     "noise_amp": 0.07,
     "n_waves": 6,
     "pool_size": 32,
     "n_dirs": 32,
     "overlap_allow": 0.95,
-    "relax_iters": 150,
-    "z_jitter": 0.0015
+    "relax_iters": 600,
+    "z_jitter": 0.0015,
+    "layers": [
+      {
+        "coverage": 0.88,
+        "size_range": [
+          0.026,
+          0.06
+        ],
+        "tilt_deg": 18.0
+      },
+      {
+        "coverage": 0.7,
+        "size_range": [
+          0.02,
+          0.044
+        ],
+        "tilt_deg": 26.0
+      }
+    ]
   },
   "materials": {
     "density": 2600.0,
@@ -68,7 +86,7 @@
     ],
     "preview": true
   },
-  "_comment": "\u6b63\u5f0f\u573a\u666f: 1.5 x 4.0 m \u9e45\u5375\u77f3\u6b65\u884c\u69fd(\u6df1 0.20 m) + \u62ac\u5347\u5e73\u53f0(\u9876\u9762 0.25 m) + \u7ad9\u7acb\u53f0",
+  "_comment": "v2 scene: 1.5 x 4.0 m cobblestone trough (depth 0.20) + platform (top 0.25) + standing pad. 2 pebble layers, base coverage 0.88, bed depth about 0.09 m so the robot foot cannot reach the hard mortar plate.",
   "_derived": {
     "lx": 1.5,
     "ly": 4.0,

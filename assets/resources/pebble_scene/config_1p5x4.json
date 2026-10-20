@@ -1,5 +1,5 @@
 {
-  "_comment": "正式场景: 1.5 x 4.0 m 鹅卵石步行槽(深 0.20 m) + 抬升平台(顶面 0.25 m) + 站立台",
+  "_comment": "v2 scene: 1.5 x 4.0 m cobblestone trough (depth 0.20) + platform (top 0.25) + standing pad. 2 pebble layers, base coverage 0.88, bed depth about 0.09 m so the robot foot cannot reach the hard mortar plate.",
   "units": "m",
   "up_axis": "Z",
   "quat_order": "wxyz",
@@ -30,18 +30,22 @@
   },
 
   "pebbles": {
-    "size_range": [0.020, 0.060],
+    "size_range": [0.026, 0.060],
     "axis_ratio_b": [0.60, 0.90],
     "axis_ratio_c": [0.50, 0.80],
-    "coverage": 0.75,
+    "coverage": 0.88,
     "tilt_deg": 20.0,
     "noise_amp": 0.07,
     "n_waves": 6,
     "pool_size": 32,
     "n_dirs": 32,
     "overlap_allow": 0.95,
-    "relax_iters": 150,
-    "z_jitter": 0.0015
+    "relax_iters": 600,
+    "z_jitter": 0.0015,
+    "layers": [
+      {"coverage": 0.88, "size_range": [0.026, 0.060], "tilt_deg": 18.0},
+      {"coverage": 0.70, "size_range": [0.020, 0.044], "tilt_deg": 26.0}
+    ]
   },
 
   "materials": {

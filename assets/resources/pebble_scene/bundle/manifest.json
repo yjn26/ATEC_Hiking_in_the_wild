@@ -1,6 +1,6 @@
 {
   "bundle_version": "1.0",
-  "created_utc": "2026-10-19T09:22:41Z",
+  "created_utc": "2026-10-20T07:11:36Z",
   "generator": {
     "script": "gen_pebbles.py",
     "seed": 20261019
@@ -25,7 +25,7 @@
     ],
     "platform_top_z": 0.25,
     "pebble_nominal_top_z": 0.15,
-    "bulk_fill_top_z": 0.10743179935564742,
+    "bulk_fill_top_z": 0.07499882385765308,
     "standing_pad_center": [
       1.4,
       -1.45,
@@ -58,26 +58,26 @@
   "layouts": {
     "n": 16,
     "n_per_layout": [
-      4467,
-      4370,
-      4443,
-      4404,
-      4413,
-      4408,
-      4500,
-      4424,
-      4382,
-      4423,
-      4397,
-      4423,
-      4391,
-      4408,
-      4392,
-      4457
+      11297,
+      11294,
+      11178,
+      11238,
+      11250,
+      11176,
+      11343,
+      11213,
+      11169,
+      11266,
+      11176,
+      11265,
+      11252,
+      11207,
+      11167,
+      11283
     ],
     "file": "layouts.npz",
-    "sha256": "7ab4deaef134c4c2476cb867061aad27e93d02e7c6cdee29c161724e8d3f400e",
-    "total_pebbles": 70702
+    "sha256": "c89a2c47557980eaca8b91854f54e6dac79ece4ea00643e4d0c6a41944b9d062",
+    "total_pebbles": 179774
   },
   "physics_hints": {
     "dt_recommended": 0.001,
@@ -95,16 +95,23 @@
     "mu_pebble_mortar": 0.45,
     "restitution": 0.1,
     "density": 2600.0,
-    "mass_mean_g": 33.24773587591717,
-    "note": "\u5375\u77f3\u4e3a\u5355\u5c42\u3001\u534a\u57cb\u4e8e bulk_fill \u9762; \u52a8\u529b\u5b66\u7248\u8bf7\u53ea\u7ed9\u5c11 env \u5b9e\u4f8b\u5316"
+    "mass_mean_g": 24.72348792485781,
+    "note": "\u5375\u77f3\u4e3a 2 \u5c42\u5806\u53e0(\u5c42 0 \u8d34 bulk_fill, \u5c42 1 \u538b\u5728\u5c42 0 \u9876\u9762\u4e0a); \u5e8a\u539a\u7ea6 0.09 m, \u673a\u5668\u4eba\u811a\u8e29\u4e0d\u5230\u586b\u5145\u4f53; \u52a8\u529b\u5b66\u7248\u8bf7\u53ea\u7ed9\u5c11 env \u5b9e\u4f8b\u5316"
   },
   "quality": {
-    "coverage_mean": 0.7546796317893264,
-    "overlap_max_mm": 1.7287416431166214,
-    "overlap_bad_total": 0,
+    "n_layers": 2,
+    "n_per_layer": [
+      4659,
+      6638
+    ],
+    "density_per_m2": 1872.6458333333333,
+    "bed_depth_mean": 0.07500117614234691,
+    "coverage_mean": 1.5777417828127143,
+    "overlap_max_mm": 3.0401834094466453,
+    "overlap_bad_total": 28,
     "top_mean_range": [
-      0.1272260583044833,
-      0.12996958633034414
+      0.10967611761680099,
+      0.1118975712414754
     ]
   },
   "files": {
