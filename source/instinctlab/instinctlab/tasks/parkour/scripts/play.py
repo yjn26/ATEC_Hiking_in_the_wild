@@ -3,6 +3,7 @@
 """Launch Isaac Sim Simulator first."""
 
 import argparse
+import math
 import os
 import subprocess
 import sys
@@ -46,6 +47,23 @@ parser.add_argument("--keyboard_control", action="store_true", default=False, he
 parser.add_argument("--keyboard_linvel_step", type=float, default=0.5, help="Linear velocity change per keyboard step.")
 parser.add_argument("--keyboard_angvel", type=float, default=1.0, help="Yaw-rate change per keyboard step.")
 parser.add_argument("--no_depth_viewer", action="store_true", help="Do not open the Qt depth and velocity viewer.")
+# cobblestone trough scene (built by pebble_loader.py, Isaac/PhysX only)
+parser.add_argument(
+    "--pebble_scene",
+    type=str,
+    default=None,
+    help="Path to the pebble bundle dir (contains manifest.json + layouts.npz). Enables the 1.5x4 m trough demo.",
+)
+parser.add_argument("--pebble_layout", type=str, default="0", help="Layout id 0-15, or 'random'.")
+parser.add_argument("--pebble_mode", type=str, default="dynamic", choices=["static", "dynamic"], help="Pebble physics mode.")
+parser.add_argument("--pebble_hide", action="store_true", default=False, help="Hide pebble meshes (physics only, no visuals).")
+parser.add_argument("--pebble_yaw_deg", type=float, default=180.0, help="Spawn yaw in degrees (180 = facing -X, straight at the trough).")
+parser.add_argument(
+    "--pebble_auto_forward",
+    type=float,
+    default=0.0,
+    help="If >0, drive a constant forward speed instead of WASD (headless smoke test).",
+)
 
 # append Instinct-RL cli arguments
 cli_args.add_instinct_rl_args(parser)
@@ -151,10 +169,54 @@ def main():
         env_cfg.scene.num_envs = 1
         env_cfg.episode_length_s = 1e10
 
+    if args_cli.pebble_scene:
+        # The trough demo is a single-robot, single-env interactive scene.
+        env_cfg.scene.num_envs = 1
+        env_cfg.episode_length_s = 1e10
+        args_cli.keyboard_control = True
+        # Stand on the 1.20x1.00 m pad (local 1.40, -1.45; top 0.255 m + 5 mm clearance),
+        # facing the trough by default so W walks straight off the platform onto the pebbles.
+        _yaw = math.radians(args_cli.pebble_yaw_deg)
+        env_cfg.scene.robot.init_state.pos = (1.40, -1.45, 0.260)
+        env_cfg.scene.robot.init_state.rot = (math.cos(_yaw / 2.0), 0.0, 0.0, math.sin(_yaw / 2.0))
+
     model_label = Path(resume_path).stem.split("_")[-1] if resume_path is not None else onnx_model_dir.parent.name
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+
+    pebble_info = None
+    if args_cli.pebble_scene:
+        # The generated terrain puts env_0's spawn at a terrain-tile centre, so the whole
+        # trough is built under /World/pebble and then translated onto env_origins[0].
+        import omni.usd
+        from pxr import Gf, UsdGeom
+
+        sys.path.insert(0, str(Path(args_cli.pebble_scene).resolve().parent))
+        from pebble_loader import build_pebble_scene
+
+        origin = env.unwrapped.scene.terrain.env_origins[0]
+        ox, oy, oz = float(origin[0]), float(origin[1]), float(origin[2])
+        _layout = args_cli.pebble_layout
+        layout_id = _layout if str(_layout) == "random" else int(_layout)
+        pebble_root = "/World/pebble"
+        pebble_info = build_pebble_scene(
+            args_cli.pebble_scene,
+            n_envs=1,
+            layout_id=layout_id,
+            mode=args_cli.pebble_mode,
+            prim_root=pebble_root,
+            env_spacing=0.0,
+            make_invisible=args_cli.pebble_hide,
+            verbose=False,
+        )
+        stage = omni.usd.get_context().get_stage()
+        UsdGeom.Xform.Define(stage, pebble_root).AddTranslateOp().Set(Gf.Vec3d(ox, oy, oz))
+        print(
+            f"[INFO] pebble scene @ terrain origin ({ox:.3f}, {oy:.3f}, {oz:.3f}): "
+            f"{pebble_info['n_pebbles']} pebbles, layout={layout_id}, mode={args_cli.pebble_mode}, "
+            f"fill_z={pebble_info['fill_z']:.5f}, local_spawn={pebble_info['spawn']}"
+        )
     # wrap for video recording
     if args_cli.video:
         video_kwargs = {
@@ -232,6 +294,9 @@ def main():
         print(f"[INFO]: Loaded parkour ONNX inference sessions from: {onnx_model_dir if direct_onnx else export_model_dir}")
 
     override_command = torch.zeros(env.num_envs, 3, device=env.device)
+    if args_cli.pebble_auto_forward > 0.0:
+        override_command[:, 0] = args_cli.pebble_auto_forward
+        print(f"[INFO] pebble auto-forward: lin_vel_x = {args_cli.pebble_auto_forward:.2f} m/s")
     command_obs_slice = get_obs_slice(env.get_obs_segments(), "velocity_commands")
     dashboard = None
     if not args_cli.headless and not args_cli.no_depth_viewer:
@@ -269,13 +334,17 @@ def main():
         elif e.input == carb.input.KeyboardInput.X:
             override_command.zero_()
 
-    app_window = omni.appwindow.get_default_app_window()
-    keyboard = app_window.get_keyboard()
-    input = carb.input.acquire_input_interface()
-    input.subscribe_to_keyboard_events(keyboard, on_keyboard_input)
+    # NOTE: the default app window does not exist in --headless mode, so WASD is GUI-only.
+    if not args_cli.headless:
+        app_window = omni.appwindow.get_default_app_window()
+        keyboard = app_window.get_keyboard()
+        input = carb.input.acquire_input_interface()
+        input.subscribe_to_keyboard_events(keyboard, on_keyboard_input)
 
     # reset environment
     obs, _ = env.get_observations()
+    if pebble_info is not None and args_cli.pebble_auto_forward > 0.0:
+        print("[INFO] pebble smoke: tracking robot base position every 100 steps")
     update_dashboard()
     timestep = 0
     # simulate environment
@@ -302,6 +371,12 @@ def main():
             # env stepping
             obs, rewards, dones, infos = env.step(actions)
         timestep += 1
+        if pebble_info is not None and args_cli.pebble_auto_forward > 0.0 and timestep % 100 == 0:
+            root_pos = env.unwrapped.scene["robot"].data.root_pos_w[0]
+            print(
+                f"[pebble] step={timestep} base=({root_pos[0]:.3f}, {root_pos[1]:.3f}, {root_pos[2]:.3f})",
+                flush=True,
+            )
         if timestep % 5 == 0:
             update_dashboard()
 
