@@ -277,8 +277,8 @@ def main():
         )
         env_cfg.scene.pebble = pebble_asset
 
-        # 相机：默认视角在机器人正后方 4 m、跟着它跑，看不到卵石床被推开的痕迹。
-        # 固定机位、俯视 25 度左右，能同时看见台面、槽体和犁出的沟。
+        # 相机从侧上方俯视，能看到整条 4 m 长槽和机器人把卵石推开的痕迹。
+        # 固定机位，高度约 25 cm，同时看得清台面、槽壁和机器人的轮廓。
         env_cfg.viewer.origin_type = "world"
         env_cfg.viewer.eye = tuple(float(v) for v in args_cli.pebble_cam_eye.split(","))
         env_cfg.viewer.lookat = tuple(float(v) for v in args_cli.pebble_cam_lookat.split(","))
@@ -439,6 +439,7 @@ def main():
         _pebble_before = _pb.pebble_positions(pebble_info) if args_cli.pebble_mode == "dynamic" else None
         if _pebble_before is not None:
             print("[INFO] captured initial pebble bed positions (dynamic mode)", flush=True)
+    _peb_traj = []      # robot base XY every 10 steps, exported with the pebble field
     if pebble_info is not None and args_cli.pebble_auto_forward > 0.0:
         print("[INFO] pebble smoke: tracking robot base position every 100 steps")
     update_dashboard()
@@ -468,7 +469,7 @@ def main():
             obs, rewards, dones, infos = env.step(actions)
         timestep += 1
         if _pebble_before is not None and timestep == 30:
-            # 前 30 步还没下台面：这段时间的位移是卵石床自沉降，不是机器人压出来的，
+            # 前 30 步还没下台面：这段位移是卵石床自沉降，不是机器人压出来的，
             # 单独报一次后把基线换成沉降后的状态。
             _pb.report_displacement(pebble_info, _pebble_before, label="settling(0-30 steps)")
             _pebble_before = _pb.pebble_positions(pebble_info)
@@ -482,6 +483,9 @@ def main():
                 f"vel_b=({vel_b[0]:.2f}, {vel_b[1]:.2f}) cmd=({cmd[0]:.2f}, {cmd[1]:.2f}, {cmd[2]:.2f})",
                 flush=True,
             )
+        if _peb_traj is not None and timestep % 10 == 0:
+            _rp = env.unwrapped.scene["robot"].data.root_pos_w[0]
+            _peb_traj.append((float(_rp[0]), float(_rp[1])))
         if timestep % 5 == 0:
             update_dashboard()
 
@@ -494,6 +498,15 @@ def main():
     # close the simulator
     if pebble_info is not None and _pebble_before is not None:
         _pb.report_displacement(pebble_info, _pebble_before, label="final")
+        try:
+            _pb.export_field(
+                pebble_info,
+                _pebble_before,
+                os.path.join(log_dir, "pebble_field_final.npz"),
+                traj=_peb_traj,
+            )
+        except Exception as _exc:  # noqa: BLE001  (never break a demo over diagnostics)
+            print("[INFO] pebble field export skipped: %r" % (_exc,), flush=True)
     env.close()
 
     if args_cli.video:

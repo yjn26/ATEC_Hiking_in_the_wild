@@ -107,20 +107,35 @@ def _apply_robot_contact_offsets(stage, root_path, contact_offset, rest_offset):
     """
     from pxr import PhysxSchema, Usd, UsdPhysics
 
+    def _apply_under(prim_root):
+        n = 0
+        for prim in Usd.PrimRange(prim_root):
+            if not prim.HasAPI(UsdPhysics.CollisionAPI):
+                continue
+            api = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+            if contact_offset and contact_offset > 0.0:
+                api.CreateContactOffsetAttr(float(contact_offset))
+            if rest_offset and rest_offset > 0.0:
+                api.CreateRestOffsetAttr(float(rest_offset))
+            n += 1
+        return n
+
     prim_root = stage.GetPrimAtPath(root_path)
-    if not prim_root or not prim_root.IsValid():
-        print("[pebble] WARNING: robot prim %s not found" % root_path, flush=True)
+    count = _apply_under(prim_root) if (prim_root and prim_root.IsValid()) else 0
+    if count == 0:
+        # Diagnosed 2026-10-20: at spawner time ``/World/envs/env_0/Robot`` exists (its
+        # ``torso_link`` even carries ArticulationRootAPI) but it has **no collision prims
+        # yet** — the G1's colliders are authored later, during ``sim.reset()``, and PhysX
+        # has already consumed ``contactOffset`` by then. So the robot side keeps its 20 mm
+        # default and the contact distance stays ``20 mm + --pebble_contact_offset``.
+        # Fixing it needs an asset-level edit (or a hook inside ``reset``), not this spawner.
+        # See the "robot side contact offset" section of the pebble_scene HANDOFF.
+        print(
+            "[pebble] robot colliders not found under %s (they are authored after sim.reset()); "
+            "robot keeps its 20 mm default contact offset" % root_path,
+            flush=True,
+        )
         return 0
-    count = 0
-    for prim in Usd.PrimRange(prim_root):
-        if not prim.HasAPI(UsdPhysics.CollisionAPI):
-            continue
-        api = PhysxSchema.PhysxCollisionAPI.Apply(prim)
-        if contact_offset and contact_offset > 0.0:
-            api.CreateContactOffsetAttr(float(contact_offset))
-        if rest_offset and rest_offset > 0.0:
-            api.CreateRestOffsetAttr(float(rest_offset))
-        count += 1
     print("[pebble] robot colliders: contact_offset set on %d prims under %s" % (count, root_path), flush=True)
     return count
 
@@ -300,4 +315,36 @@ def report_displacement(scene, before, threshold_mm=2.0, label="pebbles"):
         % (label, threshold_mm, moved, d.size, 100.0 * moved / max(d.size, 1), d.max(), d.mean(), np.percentile(d, 99)),
         flush=True,
     )
+    print(
+        "[pebble] %s tiers: >10mm=%d, >50mm=%d, >100mm=%d"
+        % (label, int((d > 10.0).sum()), int((d > 50.0).sum()), int((d > 100.0).sum())),
+        flush=True,
+    )
     return d
+
+
+def export_field(scene, before, path, traj=None, extra=None):
+    """Dump the final pebble field (plus the robot path) as an ``.npz``.
+
+    The bed is only readable from inside the sim (PhysX tensors), so the raw state has to
+    leave the process for any offline analysis — e.g. "did the robot end up standing on the
+    bare mortar plate instead of on pebbles?". ``play.py`` calls this at the end of a run.
+    """
+    import numpy as np
+
+    now = pebble_positions(scene)
+    d = np.linalg.norm(now - before, axis=1) * 1000.0
+    t = np.asarray(traj if traj is not None else [], dtype=np.float64).reshape(-1, 2)
+    payload = dict(
+        pos=now.astype(np.float32),
+        before=before.astype(np.float32),
+        disp_mm=d.astype(np.float32),
+        traj=t,
+        fill_z=float(scene["fill_z"]),
+        layout_ids=np.asarray(scene.get("layout_ids") or [], dtype=np.int32),
+    )
+    if extra:
+        payload.update(extra)
+    np.savez_compressed(path, **payload)
+    print("[pebble] field exported -> %s (n=%d, traj=%d pts)" % (path, len(now), len(t)), flush=True)
+    return payload
