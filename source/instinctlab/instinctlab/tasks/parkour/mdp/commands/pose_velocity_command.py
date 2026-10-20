@@ -58,6 +58,18 @@ class PoseVelocityCommand(CommandTerm):
         # obtain the terrain asset
         self.terrain: TerrainImporter = env.scene["terrain"]
 
+        # A plane / usd terrain has no terrain-grid bookkeeping at all. Synthesise the single
+        # virtual patch it stands for, so that the target sampler below stays well defined
+        # instead of dying with AttributeError (used by the pebble-trough demo, whose trough
+        # floor is z = 0 hence runs on a plane).
+        if getattr(self.terrain, "terrain_levels", None) is None:
+            self.terrain.terrain_levels = torch.zeros(
+                self.num_envs, dtype=torch.long, device=self.device
+            )
+            self.terrain.terrain_types = torch.zeros(
+                self.num_envs, dtype=torch.long, device=self.device
+            )
+
         self.lin_vel_x_range = torch.zeros(self.num_envs, 2, device=self.device)
         self.lin_vel_y_range = torch.zeros(self.num_envs, 2, device=self.device)
         self.ang_vel_z_range = torch.zeros(self.num_envs, 2, device=self.device)
@@ -71,8 +83,13 @@ class PoseVelocityCommand(CommandTerm):
         self.random_lin_vel_y = torch.zeros(self.num_envs, device=self.device)
         self.random_ang_vel_z = torch.zeros(self.num_envs, device=self.device)
 
-        if self.cfg.velocity_ranges is not None:
-            terrain_generator_cfg = self.terrain.cfg.terrain_generator
+        terrain_generator_cfg = self.terrain.cfg.terrain_generator
+        if getattr(self.terrain, "terrain_types", None) is None:
+            # A plane / usd terrain has no sub-terrain columns, so there is nothing to map the
+            # per-terrain `velocity_ranges` onto: keep the global `ranges` instead of crashing
+            # (the pebble-trough demo runs on a plane so that the trough floor is z = 0).
+            terrain_generator_cfg = None
+        if self.cfg.velocity_ranges is not None and terrain_generator_cfg is not None:
             proportions = np.array([sub_cfg.proportion for sub_cfg in terrain_generator_cfg.sub_terrains.values()])
             proportions /= np.sum(proportions)
 
@@ -116,10 +133,16 @@ class PoseVelocityCommand(CommandTerm):
 
         # obtain the valid targets from the terrain
         if "target" not in self.terrain.flat_patches:
-            raise RuntimeError(
-                "The terrain-based command generator requires a valid flat patch under 'target' in the terrain."
-                f" Found: {list(self.terrain.flat_patches.keys())}"
-            )
+            if terrain_generator_cfg is None:
+                # plane / usd terrain: no patch bookkeeping to inherit, so expose the origin as
+                # the single valid target (pose sampling then degenerates to "walk to origin",
+                # which the keyboard / auto-forward override in play.py replaces anyway).
+                self.terrain.flat_patches["target"] = torch.zeros(1, 1, 1, 3, device=self.device)
+            else:
+                raise RuntimeError(
+                    "The terrain-based command generator requires a valid flat patch under 'target' in the terrain."
+                    f" Found: {list(self.terrain.flat_patches.keys())}"
+                )
         # valid targets: (terrain_level, terrain_type, num_patches, 3)
         self.valid_targets: torch.Tensor = self.terrain.flat_patches["target"]
 

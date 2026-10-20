@@ -41,6 +41,12 @@ class EdgeCylinder(VirtualObstacleBase):
     def __init__(self, cfg: EdgeCylinderCfg):
         self.cfg: EdgeCylinderCfg = cfg
         self.angle_threshold = cfg.angle_threshold
+        # Empty state until :meth:`generate` runs. A plane / usd terrain has no mesh, so
+        # generate() is never called, yet the volume-point sensor still queries
+        # `get_points_penetration_offset()` and the debug visualiser calls `visualize()`.
+        self.edges_pyt = torch.zeros(0, 6, dtype=torch.float32)
+        self.cylinders = None
+        self.device = None
 
     def generate(self, mesh: trimesh.Trimesh, device="cpu") -> None:
         """Detect sharp edges in the mesh and store the edge cylinder as virtual obstacle.
@@ -155,8 +161,7 @@ class PluckerEdgeCylinder(EdgeCylinder):
     """Detects sharp edges in a mesh using the Laplacian operator."""
 
     def __init__(self, cfg: PluckerEdgeCylinderCfg):
-        self.cfg: PluckerEdgeCylinderCfg = cfg
-        self.angle_threshold = cfg.angle_threshold
+        super().__init__(cfg)
 
     def process_edges(self, edge_coords: np.ndarray) -> np.ndarray:
         """Process the edge coordinates using Plücker coordinates.
@@ -250,8 +255,7 @@ class RansacEdgeCylinder(EdgeCylinder):
     """Detects sharp edges in a mesh using the Laplacian operator."""
 
     def __init__(self, cfg: RansacEdgeCylinderCfg):
-        self.cfg: RansacEdgeCylinderCfg = cfg
-        self.angle_threshold = cfg.angle_threshold
+        super().__init__(cfg)
 
     def process_edges(self, edge_coords: np.ndarray) -> np.ndarray:
         """Process the edge coordinates using ransac.
@@ -297,8 +301,7 @@ class GreedyconcatEdgeCylinder(EdgeCylinder):
     """Detects sharp edges in a mesh using the Laplacian operator."""
 
     def __init__(self, cfg: GreedyconcatEdgeCylinderCfg):
-        self.cfg: GreedyconcatEdgeCylinderCfg = cfg
-        self.angle_threshold = cfg.angle_threshold
+        super().__init__(cfg)
 
     def process_edges(self, edge_coords: np.ndarray) -> np.ndarray:
         line_pts = edge_coords.reshape(-1, 3)

@@ -64,6 +64,53 @@ parser.add_argument(
     default=0.0,
     help="If >0, drive a constant forward speed instead of WASD (headless smoke test).",
 )
+parser.add_argument(
+    "--pebble_contact_offset",
+    type=float,
+    default=0.0,
+    help=(
+        "PhysX contact offset for the pebbles (m). 0 = engine default (20 mm), which is the same "
+        "size as a pebble and makes the whole bed behave like a rigid slab. Use 0.001-0.002 to see "
+        "the bed yield. Note a contact pair uses the SUM of both offsets, so the robot colliders "
+        "need the same treatment (--pebble_robot_contact_offset)."
+    ),
+)
+parser.add_argument(
+    "--pebble_rest_offset",
+    type=float,
+    default=0.0,
+    help="PhysX rest offset for the pebbles (m). 0 = engine default. Half of contact offset is typical.",
+)
+parser.add_argument(
+    "--pebble_robot_contact_offset",
+    type=float,
+    default=0.0,
+    help="If >0, apply this contact offset to every collider of the robot (the other side of the contact pair).",
+)
+parser.add_argument(
+    "--pebble_spawn_xy",
+    type=str,
+    default="",
+    help="Override the spawn position on the pad, e.g. '0.0,-1.6' to start inside the trough.",
+)
+parser.add_argument(
+    "--pebble_spawn_z",
+    type=float,
+    default=-1.0,
+    help="Height of the surface the robot stands on (default: the standing pad top, 0.255 m).",
+)
+parser.add_argument(
+    "--pebble_cam_eye",
+    type=str,
+    default="3.4,-4.6,2.3",
+    help="Fixed world-space camera position for the demo, 'x,y,z'.",
+)
+parser.add_argument(
+    "--pebble_cam_lookat",
+    type=str,
+    default="-0.3,-0.5,0.45",
+    help="Fixed world-space camera target for the demo, 'x,y,z'.",
+)
 
 # append Instinct-RL cli arguments
 cli_args.add_instinct_rl_args(parser)
@@ -112,6 +159,10 @@ if args_cli.debug:
 
 def main():
     """Play with Instinct-RL agent."""
+    import instinctlab as _il
+    import gymnasium as _gym
+    print("[DBG] instinctlab =", _il.__file__, flush=True)
+    print("[DBG] tasks =", [k for k in _gym.registry.keys() if "Instinct" in k][:8], flush=True)
     # parse configuration
     env_cfg = parse_env_cfg(
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
@@ -168,16 +219,69 @@ def main():
         env_cfg.scene.num_envs = 1
         env_cfg.episode_length_s = 1e10
 
+    pebble_asset = None
     if args_cli.pebble_scene:
         # The trough demo is a single-robot, single-env interactive scene.
         env_cfg.scene.num_envs = 1
         env_cfg.episode_length_s = 1e10
         args_cli.keyboard_control = True
-        # Stand on the 1.20x1.00 m pad (local 1.40, -1.45; top 0.255 m + 5 mm clearance),
-        # facing the trough by default so W walks straight off the platform onto the pebbles.
-        _yaw = math.radians(args_cli.pebble_yaw_deg)
-        env_cfg.scene.robot.init_state.pos = (1.40, -1.45, 0.260)
-        env_cfg.scene.robot.init_state.rot = (math.cos(_yaw / 2.0), 0.0, 0.0, math.sin(_yaw / 2.0))
+
+        import pebble_scene_bridge as _pb
+
+        # (a) terrain: the trough floor is modelled at z = 0 (`trough_floor` spans [-0.05, 0]),
+        # so a plane terrain *is* the trough floor. The generated parkour terrain undulates by
+        # up to 0.2 m (same size as the 0.20 m walls -> trough buried) and it moves env_origins
+        # around on reset (-> robot and trough end up 16 m apart).
+        env_cfg.scene.terrain.terrain_type = "plane"
+        env_cfg.scene.terrain.terrain_generator = None
+        # the parkour cfg asks for an MDL ground material, which a plane cannot sample ->
+        # IsaacLab falls back to pure black; use a plain grey preview surface instead.
+        from isaaclab.sim import PreviewSurfaceCfg
+
+        env_cfg.scene.terrain.visual_material = PreviewSurfaceCfg(diffuse_color=(0.45, 0.45, 0.45))
+
+        # (b) spawn: `init_state.pos` is the robot *root* pose, not the feet. Stand on the
+        # 1.20x1.00 m pad by adding the default standing root height (0.9 m for the G1 cfg)
+        # on top of the pad surface, facing the trough so W walks off the platform.
+        _root_z = float(env_cfg.scene.robot.init_state.pos[2])
+        _spawn_xy = None
+        if args_cli.pebble_spawn_xy:
+            _sx, _sy = (float(v) for v in args_cli.pebble_spawn_xy.split(","))
+            _spawn_xy = (_sx, _sy)
+        _spawn_pos, _spawn_rot = _pb.robot_spawn(
+            args_cli.pebble_scene,
+            _root_z,
+            args_cli.pebble_yaw_deg,
+            spawn_xy=_spawn_xy,
+            surface_z=(args_cli.pebble_spawn_z if args_cli.pebble_spawn_z >= 0.0 else None),
+        )
+        env_cfg.scene.robot.init_state.pos = _spawn_pos
+        env_cfg.scene.robot.init_state.rot = _spawn_rot
+        print(
+            f"[INFO] robot spawn on pad: pos=({_spawn_pos[0]:.3f}, {_spawn_pos[1]:.3f}, "
+            f"{_spawn_pos[2]:.3f}) = pad_top + root {_root_z:.3f} m, yaw={args_cli.pebble_yaw_deg:.1f} deg"
+        )
+
+        # (c) pebbles: must be spawned from the SceneCfg so that they exist *before*
+        # `sim.reset()`; creating rigid bodies afterwards makes the PhysX fabric views stale
+        # and dynamic mode dies with `CUDA error: illegal memory access`.
+        pebble_asset = _pb.make_scene_asset(
+            args_cli.pebble_scene,
+            layout_id=args_cli.pebble_layout,
+            mode=args_cli.pebble_mode,
+            hide=args_cli.pebble_hide,
+            contact_offset=args_cli.pebble_contact_offset,
+            rest_offset=args_cli.pebble_rest_offset,
+            robot_prim_path=str(env_cfg.scene.robot.prim_path).format(ENV_REGEX_NS="/World/envs/env_0"),
+            robot_contact_offset=args_cli.pebble_robot_contact_offset,
+        )
+        env_cfg.scene.pebble = pebble_asset
+
+        # 相机：默认视角在机器人正后方 4 m、跟着它跑，看不到卵石床被推开的痕迹。
+        # 固定机位、俯视 25 度左右，能同时看见台面、槽体和犁出的沟。
+        env_cfg.viewer.origin_type = "world"
+        env_cfg.viewer.eye = tuple(float(v) for v in args_cli.pebble_cam_eye.split(","))
+        env_cfg.viewer.lookat = tuple(float(v) for v in args_cli.pebble_cam_lookat.split(","))
 
     model_label = Path(resume_path).stem.split("_")[-1] if resume_path is not None else onnx_model_dir.parent.name
 
@@ -185,37 +289,13 @@ def main():
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
 
     pebble_info = None
-    if args_cli.pebble_scene:
-        # The generated terrain puts env_0's spawn at a terrain-tile centre, so the whole
-        # trough is built under /World/pebble and then translated onto env_origins[0].
-        import omni.usd
-        from pxr import Gf, UsdGeom
+    if pebble_asset is not None:
+        import pebble_scene_bridge as _pb
 
-        sys.path.insert(0, str(Path(args_cli.pebble_scene).resolve().parent))
-        from pebble_loader import build_pebble_scene
-
-        origin = env.unwrapped.scene.terrain.env_origins[0]
-        ox, oy, oz = float(origin[0]), float(origin[1]), float(origin[2])
-        _layout = args_cli.pebble_layout
-        layout_id = _layout if str(_layout) == "random" else int(_layout)
-        pebble_root = "/World/pebble"
-        pebble_info = build_pebble_scene(
-            args_cli.pebble_scene,
-            n_envs=1,
-            layout_id=layout_id,
-            mode=args_cli.pebble_mode,
-            prim_root=pebble_root,
-            env_spacing=0.0,
-            make_invisible=args_cli.pebble_hide,
-            verbose=False,
-        )
-        stage = omni.usd.get_context().get_stage()
-        UsdGeom.Xform.Define(stage, pebble_root).AddTranslateOp().Set(Gf.Vec3d(ox, oy, oz))
-        print(
-            f"[INFO] pebble scene @ terrain origin ({ox:.3f}, {oy:.3f}, {oz:.3f}): "
-            f"{pebble_info['n_pebbles']} pebbles, layout={layout_id}, mode={args_cli.pebble_mode}, "
-            f"fill_z={pebble_info['fill_z']:.5f}, local_spawn={pebble_info['spawn']}"
-        )
+        pebble_info = _pb.last_scene()
+        if pebble_info is None:
+            raise RuntimeError("pebble scene asset was registered but never spawned")
+        print(f"[INFO] pebble scene spawned: {_pb.summary(pebble_info)}")
     # wrap for video recording
     if args_cli.video:
         video_kwargs = {
@@ -333,8 +413,7 @@ def main():
         elif e.input == carb.input.KeyboardInput.X:
             override_command.zero_()
 
-    # NOTE: the default app window (omni.appwindow) does not exist in --headless mode,
-    # so the import itself has to stay inside this branch, and WASD is GUI-only.
+    # NOTE: the default app window does not exist in --headless mode, so WASD is GUI-only.
     if not args_cli.headless:
         import omni.appwindow
 
@@ -344,23 +423,24 @@ def main():
         input.subscribe_to_keyboard_events(keyboard, on_keyboard_input)
 
     # reset environment
+    _pebble_before = None
     obs, _ = env.get_observations()
     if pebble_info is not None:
-        # env.reset() re-randomises terrain levels, so env_origins[0] may have moved:
-        # re-align the trough, otherwise the robot spawns on a different tile.
-        import omni.usd
-        from pxr import Gf, UsdGeom
+        import pebble_scene_bridge as _pb
 
+        # With a plane terrain env_origins is identically zero, so the field needs no
+        # translation at all. Anything else means the terrain was not replaced.
         _o = env.unwrapped.scene.terrain.env_origins[0]
-        _stage = omni.usd.get_context().get_stage()
-        _x = UsdGeom.Xformable(_stage.GetPrimAtPath("/World/pebble"))
-        _x.GetOrderedXformOps()[0].Set(Gf.Vec3d(float(_o[0]), float(_o[1]), float(_o[2])))
         print(
-            f"[INFO] pebble scene realigned to post-reset origin ({float(_o[0]):.2f}, {float(_o[1]):.2f}, {float(_o[2]):.2f})",
+            f"[INFO] terrain origin after reset: ({float(_o[0]):.3f}, {float(_o[1]):.3f}, {float(_o[2]):.3f})",
             flush=True,
         )
-        if args_cli.pebble_auto_forward > 0.0:
-            print("[INFO] pebble smoke: tracking robot base position every 100 steps")
+        _pb.realign_field(pebble_info, _o)
+        _pebble_before = _pb.pebble_positions(pebble_info) if args_cli.pebble_mode == "dynamic" else None
+        if _pebble_before is not None:
+            print("[INFO] captured initial pebble bed positions (dynamic mode)", flush=True)
+    if pebble_info is not None and args_cli.pebble_auto_forward > 0.0:
+        print("[INFO] pebble smoke: tracking robot base position every 100 steps")
     update_dashboard()
     timestep = 0
     # simulate environment
@@ -387,10 +467,19 @@ def main():
             # env stepping
             obs, rewards, dones, infos = env.step(actions)
         timestep += 1
+        if _pebble_before is not None and timestep == 30:
+            # 前 30 步还没下台面：这段时间的位移是卵石床自沉降，不是机器人压出来的，
+            # 单独报一次后把基线换成沉降后的状态。
+            _pb.report_displacement(pebble_info, _pebble_before, label="settling(0-30 steps)")
+            _pebble_before = _pb.pebble_positions(pebble_info)
         if pebble_info is not None and args_cli.pebble_auto_forward > 0.0 and timestep % 100 == 0:
-            root_pos = env.unwrapped.scene["robot"].data.root_pos_w[0]
+            robot = env.unwrapped.scene["robot"]
+            root_pos = robot.data.root_pos_w[0]
+            vel_b = robot.data.root_lin_vel_b[0]
+            cmd = override_command[0]
             print(
-                f"[pebble] step={timestep} base=({root_pos[0]:.3f}, {root_pos[1]:.3f}, {root_pos[2]:.3f})",
+                f"[pebble] step={timestep} base=({root_pos[0]:.3f}, {root_pos[1]:.3f}, {root_pos[2]:.3f}) "
+                f"vel_b=({vel_b[0]:.2f}, {vel_b[1]:.2f}) cmd=({cmd[0]:.2f}, {cmd[1]:.2f}, {cmd[2]:.2f})",
                 flush=True,
             )
         if timestep % 5 == 0:
@@ -403,6 +492,8 @@ def main():
                 break
 
     # close the simulator
+    if pebble_info is not None and _pebble_before is not None:
+        _pb.report_displacement(pebble_info, _pebble_before, label="final")
     env.close()
 
     if args_cli.video:
