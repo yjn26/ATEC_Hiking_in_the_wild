@@ -1,6 +1,6 @@
 {
   "bundle_version": "1.0",
-  "created_utc": "2026-10-20T07:11:36Z",
+  "created_utc": "2026-10-20T08:23:22Z",
   "generator": {
     "script": "gen_pebbles.py",
     "seed": 20261019
@@ -25,7 +25,7 @@
     ],
     "platform_top_z": 0.25,
     "pebble_nominal_top_z": 0.15,
-    "bulk_fill_top_z": 0.07499882385765308,
+    "bulk_fill_top_z": 0.03,
     "standing_pad_center": [
       1.4,
       -1.45,
@@ -58,26 +58,26 @@
   "layouts": {
     "n": 16,
     "n_per_layout": [
-      11297,
-      11294,
-      11178,
-      11238,
-      11250,
-      11176,
-      11343,
-      11213,
-      11169,
-      11266,
-      11176,
-      11265,
-      11252,
-      11207,
-      11167,
-      11283
+      18847,
+      18738,
+      18774,
+      18708,
+      18625,
+      18758,
+      18763,
+      18875,
+      18833,
+      18767,
+      18762,
+      18931,
+      18768,
+      18763,
+      18760,
+      18730
     ],
     "file": "layouts.npz",
-    "sha256": "c89a2c47557980eaca8b91854f54e6dac79ece4ea00643e4d0c6a41944b9d062",
-    "total_pebbles": 179774
+    "sha256": "708944b3fe4d3209bc7d4dc59872105021af8f302ac36a2ebcd2abbf66994bb7",
+    "total_pebbles": 300402
   },
   "physics_hints": {
     "dt_recommended": 0.001,
@@ -95,23 +95,37 @@
     "mu_pebble_mortar": 0.45,
     "restitution": 0.1,
     "density": 2600.0,
-    "mass_mean_g": 24.72348792485781,
+    "mass_mean_g": 20.492192453275972,
     "note": "\u5375\u77f3\u4e3a 2 \u5c42\u5806\u53e0(\u5c42 0 \u8d34 bulk_fill, \u5c42 1 \u538b\u5728\u5c42 0 \u9876\u9762\u4e0a); \u5e8a\u539a\u7ea6 0.09 m, \u673a\u5668\u4eba\u811a\u8e29\u4e0d\u5230\u586b\u5145\u4f53; \u52a8\u529b\u5b66\u7248\u8bf7\u53ea\u7ed9\u5c11 env \u5b9e\u4f8b\u5316"
   },
   "quality": {
-    "n_layers": 2,
+    "n_layers": 4,
     "n_per_layer": [
-      4659,
-      6638
+      5274,
+      5046,
+      4364,
+      4163
     ],
-    "density_per_m2": 1872.6458333333333,
-    "bed_depth_mean": 0.07500117614234691,
-    "coverage_mean": 1.5777417828127143,
-    "overlap_max_mm": 3.0401834094466453,
-    "overlap_bad_total": 28,
+    "density_per_m2": 3129.1875,
+    "bed_depth_mean": 0.12,
+    "coverage_mean": 0.9005491724920415,
+    "coverage_note": "coverage_mean = \u6700\u5bc6\u4e00\u5c42\u7684\u5e73\u9762\u8986\u76d6\u7387; coverage_layers_sum = \u5404\u5c42\u76f8\u52a0(\u591a\u5c42\u65f6 >1)",
+    "coverage_layers_sum": 2.3612607828607906,
+    "coverage_per_layer_mean": [
+      0.9005491724920415,
+      0.5992079971464884,
+      0.4813619186017932,
+      0.3801416946204675
+    ],
+    "exposed_plate_frac_mean": 0.02112109375,
+    "exposed_plate_frac_max": 0.022583333333333334,
+    "exposed_wide_frac_mean": 1.7447916666666666e-05,
+    "exposed_wide_frac_max": 0.00012916666666666667,
+    "overlap_max_mm": 2.999346655831868,
+    "overlap_bad_total": 73,
     "top_mean_range": [
-      0.10967611761680099,
-      0.1118975712414754
+      0.08275311609076526,
+      0.08336478855051034
     ]
   },
   "files": {

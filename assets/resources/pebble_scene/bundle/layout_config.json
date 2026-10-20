@@ -27,12 +27,13 @@
   },
   "pebble_bed": {
     "nominal_top": 0.15,
-    "bulk_fill": true
+    "bulk_fill": true,
+    "bed_depth": 0.12
   },
   "pebbles": {
     "size_range": [
       0.026,
-      0.06
+      0.056
     ],
     "axis_ratio_b": [
       0.6,
@@ -42,7 +43,7 @@
       0.5,
       0.8
     ],
-    "coverage": 0.88,
+    "coverage": 0.9,
     "tilt_deg": 20.0,
     "noise_amp": 0.07,
     "n_waves": 6,
@@ -53,20 +54,40 @@
     "z_jitter": 0.0015,
     "layers": [
       {
-        "coverage": 0.88,
+        "mode": "stack",
+        "coverage": 0.9,
         "size_range": [
           0.026,
-          0.06
+          0.056
         ],
         "tilt_deg": 18.0
       },
       {
-        "coverage": 0.7,
+        "mode": "stack",
+        "coverage": 0.6,
         "size_range": [
-          0.02,
+          0.022,
+          0.046
+        ],
+        "tilt_deg": 24.0
+      },
+      {
+        "mode": "stack",
+        "coverage": 0.48,
+        "size_range": [
+          0.022,
           0.044
         ],
         "tilt_deg": 26.0
+      },
+      {
+        "mode": "stack",
+        "coverage": 0.38,
+        "size_range": [
+          0.02,
+          0.04
+        ],
+        "tilt_deg": 28.0
       }
     ]
   },
@@ -86,7 +107,7 @@
     ],
     "preview": true
   },
-  "_comment": "v2 scene: 1.5 x 4.0 m cobblestone trough (depth 0.20) + platform (top 0.25) + standing pad. 2 pebble layers, base coverage 0.88, bed depth about 0.09 m so the robot foot cannot reach the hard mortar plate.",
+  "_comment": "v3 scene: 1.5 x 4.0 m cobblestone trough (depth 0.20) + platform (top 0.25) + standing pad. Explicit 95 mm bed: base layer 0.90 coverage, a void-filler layer that seals the mortar plate, then two stacked layers on top. Goal: the hard plate never shows, before or after the robot walks.",
   "_derived": {
     "lx": 1.5,
     "ly": 4.0,

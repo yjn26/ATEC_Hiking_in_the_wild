@@ -1,0 +1,64 @@
+{
+  "_comment": "MuJoCo sim2sim bed for the 2.84 x 2.84 m pebble basin (walls 0.30 m, floor top z=0) of Hiking_deploy/sim2sim. MuJoCo solves contacts on the CPU: ~0.2 ms per dynamic body per step, so 3k pebbles cost ~0.7 s/step. This config keeps ~1.2k larger cobbles in 2 layers, which is what still runs in useful time; use --max-pebbles to go lower.",
+  "units": "m",
+  "up_axis": "Z",
+  "quat_order": "wxyz",
+  "seed": 20261020,
+  "robot_class": "generic_large",
+
+  "trough": {
+    "inner_size": [2.84, 2.84],
+    "depth": 0.30,
+    "wall_thickness": 0.04
+  },
+
+  "platform": {
+    "width": 0.0,
+    "top_height": 0.0,
+    "side": "+x"
+  },
+
+  "standing_pad": {
+    "size": [0.1, 0.1],
+    "center": null,
+    "thickness": 0.0
+  },
+
+  "pebble_bed": {
+    "nominal_top": 0.270,
+    "bed_depth": 0.265,
+    "bulk_fill": false
+  },
+
+  "pebbles": {
+    "size_range": [0.090, 0.170],
+    "axis_ratio_b": [0.60, 0.90],
+    "axis_ratio_c": [0.50, 0.80],
+    "coverage": 0.82,
+    "tilt_deg": 18.0,
+    "noise_amp": 0.07,
+    "n_waves": 6,
+    "pool_size": 32,
+    "n_dirs": 32,
+    "overlap_allow": 0.94,
+    "relax_iters": 400,
+    "z_jitter": 0.0015,
+    "layers": [
+      {"mode": "stack", "coverage": 0.82, "size_range": [0.090, 0.170], "tilt_deg": 14.0},
+      {"mode": "stack", "coverage": 0.55, "size_range": [0.080, 0.150], "tilt_deg": 20.0}
+    ]
+  },
+
+  "materials": {
+    "density": 2600.0,
+    "mu_mean": 1.30,
+    "mu_range": [1.10, 1.50]
+  },
+
+  "output": {
+    "n_layouts": 1,
+    "heightfield_cell": 0.005,
+    "static_mesh_layouts": [],
+    "preview": false
+  }
+}

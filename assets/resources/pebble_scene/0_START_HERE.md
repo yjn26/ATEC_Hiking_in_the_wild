@@ -71,7 +71,11 @@ loader_selftest.py   自检 A1~A6
 run_selftest.sh      一键自检
 physics_hints.json   实测性能/物理（仅供参考，换机器要重测）
 bundle/              layouts.npz / rock_pool.npz / stage_boxes.json / heightfield_L*.npy
-bundle/visual/       cobble_L00.obj（视觉合并网格）/ rock_pool.obj / preview.png
+bundle/visual/       rock_pool.obj（32 个单位形状）/ preview.png
+                     （cobble_L00.obj 合并网格 v3 起不再随包：44 MB 且可随时用
+                      `python gen_pebbles.py --layouts 1 --static-mesh` 重建）
+config_mujoco_basin.json  MuJoCo 侧（2.84x2.84 盆）用的配置
+export_mujoco.py / bench_mujoco.py  导出 MuJoCo 资产 / 实测步速
 bench/               原始日志（sweep / 自检 / 冲击与沉降）
 ```
 

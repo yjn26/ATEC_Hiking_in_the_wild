@@ -479,22 +479,31 @@ def deep_update(base, over):
 
 
 def pebble_layers(pc):
-    """把 pebbles 配置展开成「层列表」。没有 layers 键 = 单层（向后兼容）。"""
+    """把 pebbles 配置展开成「层列表」。没有 layers 键 = 单层（向后兼容）。
+
+    每层字段：size_range / coverage / tilt_deg / mode。
+    ``mode="void_fill"`` 表示这层不是压在包络上，而是**专门填前几层漏出来的坑**：
+    石头底面直接坐在 fill_z 上，且只放在「足迹内没有更高石头」的位置。
+    """
     base = dict(size_range=list(pc["size_range"]),
                 axis_ratio_b=list(pc["axis_ratio_b"]),
                 axis_ratio_c=list(pc["axis_ratio_c"]),
                 coverage=float(pc["coverage"]),
-                tilt_deg=float(pc["tilt_deg"]))
+                tilt_deg=float(pc["tilt_deg"]),
+                mode="stack")
     raw = pc.get("layers")
     if not raw:
         return [base]
     out = []
-    for k, l in enumerate(raw):
+    for l in raw:
         d = dict(base)
-        for kk in base:
-            if (l or {}).get(kk) is not None:
-                d[kk] = float(l[kk]) if kk != "size_range" and not isinstance(l[kk], (list, tuple)) \
-                    else (list(l[kk]) if isinstance(l[kk], (list, tuple)) else l[kk])
+        for kk, vv in (l or {}).items():
+            if kk in ("size_range",):
+                d[kk] = list(vv)
+            elif kk in ("mode",):
+                d[kk] = str(vv)
+            elif kk in d:
+                d[kk] = float(vv)
         out.append(d)
     return out
 
@@ -502,8 +511,7 @@ def pebble_layers(pc):
 def envelope_support(H, meta, xy, rad, floor_z):
     """候选点 (x,y) 处、水平半径 rad 内的支撑高度 = 包络局部最大值。
 
-    第 k 层卵石只能落在前 k-1 层（+填充体）顶面之上，不再往下穿；
-    落在孔里的石头随后靠重力自然沉降填缝。纯 numpy，无物理仿真。
+    第 k 层石头只能落在前 k-1 层（+填充体）顶面之上，不手动制造互穿。
     """
     cell = float(meta["cell"])
     ox, oy = meta["origin"]
@@ -511,12 +519,10 @@ def envelope_support(H, meta, xy, rad, floor_z):
     out = np.full(len(xy), float(floor_z), dtype=np.float64)
     for i in range(len(xy)):
         r = float(rad[i]) * 1.02
-        i0 = int(np.floor((xy[i, 0] - r - ox) / cell))
-        i1 = int(np.ceil((xy[i, 0] + r - ox) / cell)) + 1
-        j0 = int(np.floor((xy[i, 1] - r - oy) / cell))
-        j1 = int(np.ceil((xy[i, 1] + r - oy) / cell)) + 1
-        i0 = max(0, i0); i1 = min(nx, i1)
-        j0 = max(0, j0); j1 = min(ny, j1)
+        i0 = max(0, int(np.floor((xy[i, 0] - r - ox) / cell)))
+        i1 = min(nx, int(np.ceil((xy[i, 0] + r - ox) / cell)) + 1)
+        j0 = max(0, int(np.floor((xy[i, 1] - r - oy) / cell)))
+        j1 = min(ny, int(np.ceil((xy[i, 1] + r - oy) / cell)) + 1)
         if i1 <= i0 or j1 <= j0:
             continue
         v = float(H[i0:i1, j0:j1].max())
@@ -525,12 +531,82 @@ def envelope_support(H, meta, xy, rad, floor_z):
     return out
 
 
-def generate_layout(rng, cfg, geo, pool_vol, shapes_nf, nominal_top):
-    """生成一个布局。支持 pebbles.layers 多层堆叠（缺省单层）。
+def _env_at_points(H, meta, xy):
+    """单点查询包络（最近格）。"""
+    cell = float(meta["cell"])
+    ox, oy = meta["origin"]
+    nx, ny = H.shape
+    i = np.clip(((xy[:, 0] - ox) / cell).astype(int), 0, nx - 1)
+    j = np.clip(((xy[:, 1] - oy) / cell).astype(int), 0, ny - 1)
+    return H[i, j]
 
-    层 0 贴 bulk_fill 顶面；层 k>0 压在前 k-1 层的顶面包络的局部最高点上。
-    床厚 = nominal_top - fill_z = 2 * Σ_k max(z_ext_k)，即每层都至少有 2 个
-    「最大半高」的厚度，石头既不会沉进填充体，也不会被压穿到下一层。
+
+def place_void_fill(rng, layer, H, meta, fill_z, lx, ly, tol_mm=4.0, sep=0.97):
+    """在「坑」里补小石头：底面贴 fill_z，只放在足迹内没有更高石头的地方。
+
+    返回 (xy, a, b, c, yaw, rot, z_ext, rad, info) 或 None（一个都放不下）。
+    """
+    from scipy.spatial import cKDTree
+
+    lc = layer
+    mean_tmp = None
+    n_want = None
+    # 先按「空格子」的期望面积估数：坑面积 * 填充率 / 平均椭圆面积
+    void_frac = float(np.mean(H <= fill_z + tol_mm / 1000.0))
+    a_p, b_p, _ = sample_sizes(rng, 4096, lc)
+    mean_area = np.pi * float(np.mean(a_p * b_p))
+    n_want = int(round(lx * ly * void_frac * float(lc["coverage"]) / mean_area))
+    if n_want <= 0:
+        return None
+
+    n_cand = n_want * 6
+    a, b, c = sample_sizes(rng, n_cand, lc)
+    yaw = sample_yaw(rng, n_cand)
+    rot = sample_rotations(rng, yaw, float(lc["tilt_deg"]))
+    rot_m = rot.as_matrix()
+    semi = np.stack([a, b, c], axis=1)
+    z_ext = np.linalg.norm(rot_m[:, 2, :] * semi, axis=1)
+    ex = np.sqrt((a * np.cos(yaw)) ** 2 + (b * np.sin(yaw)) ** 2)
+    ey = np.sqrt((a * np.sin(yaw)) ** 2 + (b * np.cos(yaw)) ** 2)
+    rad = np.maximum(ex, ey)
+
+    xy = np.stack([rng.uniform(-lx / 2, lx / 2, n_cand),
+                   rng.uniform(-ly / 2, ly / 2, n_cand)], axis=1)
+    # 只保留「足迹内最高点仍贴着填充体」的候选 —— 这就保证了与下层零互穿
+    ok = envelope_support(H, meta, xy, rad, fill_z) <= fill_z + tol_mm / 1000.0
+    idx = np.nonzero(ok)[0]
+
+    keep = []
+    tree = None
+    for k in idx:
+        if len(keep) >= n_want:
+            break
+        if len(keep) % 128 == 0:
+            tree = cKDTree(xy[keep]) if keep else None
+        if tree is not None:
+            r_i = float(rad[k])
+            d, _ = tree.query(xy[k], k=1)
+            # 用「已接受石头的最大半径」保守判距：太宽松会互穿，太严格填不满
+            rmax = float(np.max(rad[keep]))
+            if d < sep * (r_i + rmax):
+                continue
+        keep.append(k)
+        tree = None  # 下次循环重建
+    if not keep:
+        return None
+    kept = np.array(keep, dtype=int)
+    info = dict(n_want=int(n_want), n=int(len(kept)), void_frac_before=round(void_frac, 4),
+                modes="void_fill")
+    return (xy[kept], a[kept], b[kept], c[kept], yaw[kept], rot[kept], z_ext[kept],
+            rad[kept], info)
+
+
+def generate_layout(rng, cfg, geo, pool_vol, shapes_nf, nominal_top):
+    """生成一个布局。支持 pebbles.layers 多层堆叠 + void_fill 缝隙填料。
+
+    层 0（stack）贴 bulk_fill 顶面；stack 层 k>0 压在前 k-1 层顶面包络的局部最高点上；
+    void_fill 层直接坐在填充体上、只填前几层留下的坑。
+    床厚 = ``pebble_bed.bed_depth``（显式）或旧规则 ``2 * Σ_k max(z_ext_k)``。
     """
     pc = cfg["pebbles"]
     lx, ly = geo["lx"], geo["ly"]
@@ -539,9 +615,17 @@ def generate_layout(rng, cfg, geo, pool_vol, shapes_nf, nominal_top):
     overlap_allow = float(pc["overlap_allow"])
     relax_iters = int(pc["relax_iters"])
 
-    # ---- 1) 逐层采样尺寸/朝向。z_ext 与位置无关，先算出来定床厚 ----
+    cell = float(cfg["output"]["heightfield_cell"])
+    hf_meta = dict(origin=[-lx / 2, -ly / 2], cell=cell,
+                   shape=[int(round(lx / cell)), int(round(ly / cell))])
+
+    # ---- 1) 逐层采样尺寸/朝向（stack 层先算 z_ext，用来定床厚）----
     layers = []
     for lc in layer_cfgs:
+        mode = lc["mode"]
+        if mode == "void_fill":
+            layers.append(dict(cfg=lc, mode=mode))      # 尺寸在填坑时按坑面积再采
+            continue
         a_tmp, b_tmp, _ = sample_sizes(rng, 4096, lc)
         mean_area = np.pi * float(np.mean(a_tmp * b_tmp))
         n_est = max(1, int(round(lx * ly * float(lc["coverage"]) / mean_area)))
@@ -556,31 +640,46 @@ def generate_layout(rng, cfg, geo, pool_vol, shapes_nf, nominal_top):
         z_ext = np.linalg.norm(rot.as_matrix()[:, 2, :] * semi, axis=1)
         ex = np.sqrt((a * np.cos(yaw)) ** 2 + (b * np.sin(yaw)) ** 2)
         ey = np.sqrt((a * np.sin(yaw)) ** 2 + (b * np.cos(yaw)) ** 2)
-        layers.append(dict(cfg=lc, xy=xy, yaw=yaw, a=a, b=b, c=c, rot=rot, semi=semi,
-                           z_ext=z_ext, rad=np.maximum(ex, ey), grid=grid_info, n=n))
+        layers.append(dict(cfg=lc, mode=mode, xy=xy, yaw=yaw, a=a, b=b, c=c, rot=rot,
+                           semi=semi, z_ext=z_ext, rad=np.maximum(ex, ey), grid=grid_info, n=n))
 
-    # ---- 2) 床厚：fill_z 到 nominal_top 覆盖全部层 ----
-    total_z = float(sum(np.max(l["z_ext"]) for l in layers))
-    fill_z = float(nominal_top - 2.0 * total_z)
-
-    cell = float(cfg["output"]["heightfield_cell"])
-    hf_meta = dict(origin=[-lx / 2, -ly / 2], cell=cell,
-                   shape=[int(round(lx / cell)), int(round(ly / cell))])
+    # ---- 2) 床厚 ----
+    bed = cfg.get("pebble_bed") or {}
+    if bed.get("bed_depth"):
+        fill_z = float(nominal_top - float(bed["bed_depth"]))
+    else:
+        total_z = float(sum(np.max(l["z_ext"]) for l in layers if l["mode"] != "void_fill"))
+        fill_z = float(nominal_top - 2.0 * total_z)
+    if fill_z < 0.005:
+        raise SystemExit("bed_depth 太深：fill_z=%.4f 已到槽底" % fill_z)
 
     # ---- 3) 逐层落位 ----
-    H = None
-    pos_all, quat_all, semi_all, sid_all, mass_all, mu_all, a_all, yaw_all, rot_all = [], [], [], [], [], [], [], [], []
-    layer_infos = []
+    H = np.full(hf_meta["shape"], fill_z, dtype=np.float64)
+    pos_all, quat_all, semi_all, sid_all, mass_all, mu_all = [], [], [], [], [], []
+    a_all, yaw_all, rot_all, layer_infos = [], [], [], []
     for li, l in enumerate(layers):
-        if H is None:
-            z = l["z_ext"] * 0.0 + fill_z + l["z_ext"]
+        if l["mode"] == "void_fill":
+            got = place_void_fill(rng, l["cfg"], H, hf_meta, fill_z, lx, ly)
+            if got is None:
+                print("  [layout] void_fill layer %d: nothing placed (already sealed)" % li)
+                layer_infos.append(dict(layer=li, mode="void_fill", n=0))
+                continue
+            xy, a, b, c, yaw, rot, z_ext, rad, finfo = got
+            semi = np.stack([a, b, c], axis=1)
+            z = fill_z + z_ext
+            l = dict(cfg=l["cfg"], mode="void_fill", xy=xy, yaw=yaw, a=a, b=b, c=c, rot=rot,
+                     semi=semi, z_ext=z_ext, rad=rad, n=len(xy), finfo=finfo)
+            layers[li] = l
         else:
-            z = envelope_support(H, hf_meta, l["xy"], l["rad"], fill_z) + l["z_ext"]
+            if li == 0:
+                z = fill_z + l["z_ext"]
+            else:
+                z = envelope_support(H, hf_meta, l["xy"], l["rad"], fill_z) + l["z_ext"]
         z = z + rng.uniform(-z_jitter, z_jitter, l["n"])
-        z = np.maximum(z, fill_z + l["z_ext"] * 0.9)     # 不许沉进填充体
+        z = np.maximum(z, fill_z + l["z_ext"] * 0.9)
         pos = np.stack([l["xy"][:, 0], l["xy"][:, 1], z], axis=1)
 
-        q = l["rot"].as_quat()                            # scipy: (x, y, z, w)
+        q = l["rot"].as_quat()                                  # scipy: (x, y, z, w)
         quat_wxyz = np.stack([q[:, 3], q[:, 0], q[:, 1], q[:, 2]], axis=1)
         shape_id = rng.integers(0, len(pool_vol), l["n"]).astype(np.int16)
         vol = pool_vol[shape_id] * (l["a"] * l["b"] * l["c"])
@@ -591,16 +690,20 @@ def generate_layout(rng, cfg, geo, pool_vol, shapes_nf, nominal_top):
         sid_all.append(shape_id); mass_all.append(mass); mu_all.append(mu)
         a_all.append(l["a"]); yaw_all.append(l["yaw"]); rot_all.append(l["rot"])
         top = z + l["z_ext"]
-        layer_infos.append(dict(
-            layer=li, n=int(l["n"]),
+        li_info = dict(
+            layer=li, mode=l["mode"], n=int(l["n"]),
             coverage=float(np.sum(np.pi * l["a"] * l["b"]) / (lx * ly)),
             coverage_cfg=float(l["cfg"]["coverage"]),
             size_mm=[round(2000 * float(l["a"].min()), 1), round(2000 * float(l["a"].max()), 1)],
             z_center_mean=float(z.mean()), top_min=float(top.min()),
             top_max=float(top.max()), mass_mean_g=float(mass.mean() * 1000),
-        ))
-        # 本层顶面包络（含填充体），供下一层落位
-        H = rasterize_heightfield(geo, cell, fill_z, pos, l["rot"], l["semi"])
+        )
+        extra = dict(l.get("finfo") or {})
+        extra.pop("n", None)
+        li_info.update(extra)
+        layer_infos.append(li_info)
+        # 逐层取 max：H 必须是「到目前为止整床」的顶面包络，否则露底率只看到最后一层
+        H = np.maximum(H, rasterize_heightfield(geo, cell, fill_z, pos, l["rot"], l["semi"]))
 
     pos = np.concatenate(pos_all)
     quat_wxyz = np.concatenate(quat_all)
@@ -611,29 +714,41 @@ def generate_layout(rng, cfg, geo, pool_vol, shapes_nf, nominal_top):
     a = np.concatenate(a_all)
     yaw = np.concatenate(yaw_all)
     rot = Rotation.concatenate(rot_all) if len(rot_all) > 1 else rot_all[0]
-    z_ext = np.concatenate([l["z_ext"] for l in layers])
+    z_ext = np.concatenate([l["z_ext"] for l in layers if l["n"]])
     zc = pos[:, 2]
     top = zc + z_ext
     n = len(pos)
 
-    # 层内重叠（跨层重叠是设计意图，不检查）；层 0 的最能代表「同一层里挤不挤」
-    reps = [overlap_report(l["xy"], l["a"], l["b"], l["yaw"], overlap_allow) for l in layers]
-    cover = float(np.sum(np.pi * np.concatenate([l["a"] * l["b"] for l in layers])) / (lx * ly))
+    reps = [overlap_report(l["xy"], l["a"], l["b"], l["yaw"], overlap_allow)
+            for l in layers if l["mode"] == "stack"]
+    cover = float(np.sum(np.pi * np.concatenate([l["a"] * l["b"] for l in layers if l["n"]])) / (lx * ly))
+    # 露底率：填充体顶面上 6 mm 内没有任何石头 → 从上往下能看见硬面。
+    # 0.90 覆盖率下裸板的「细缝」只有 2~4 mm，脚踩不出洞也站不住，所以再报一个
+    # 形态学开运算后的「宽洞」比例（半径 1 cm 的圆盘），这才是真的能看见/踩到的池底。
+    ex_mask = H <= fill_z + 0.006
+    rad_cell = max(1, int(round(0.010 / cell)))
+    yy, xx = np.mgrid[-rad_cell:rad_cell + 1, -rad_cell:rad_cell + 1]
+    disk = (xx ** 2 + yy ** 2) <= rad_cell ** 2
+    from scipy.ndimage import binary_opening
+    ex_wide = float(np.mean(binary_opening(ex_mask, structure=disk)))
+    exposed = float(np.mean(ex_mask))
     info = dict(
         n=int(n), n_est=int(sum(l["n"] for l in layers)),
         n_layers=len(layers), n_per_layer=[int(i["n"]) for i in layer_infos],
-        layer_sizes_mm=[i["size_mm"] for i in layer_infos], layers=layer_infos,
+        layer_sizes_mm=[i.get("size_mm") for i in layer_infos], layers=layer_infos,
         fill_z=float(fill_z), bed_depth=float(nominal_top - fill_z),
         density_per_m2=float(n / (lx * ly)),
         top_min=float(top.min()), top_max=float(top.max()), top_mean=float(top.mean()),
         bottom_min=float((zc - z_ext).min()),
         mass_min=float(mass.min()), mass_max=float(mass.max()), mass_sum=float(mass.sum()),
-        mass_mean=float(mass.mean()), coverage=cover, grid=layers[0]["grid"],
-        overlap=reps[0], overlap_per_layer=reps,
+        mass_mean=float(mass.mean()), coverage=cover, grid=layers[0].get("grid"),
+        overlap=reps[0] if reps else dict(n_bad=0, max_penetration=0.0),
+        overlap_per_layer=reps, exposed_plate_frac=exposed,
+        exposed_plate_frac_wide=ex_wide,
     )
     return dict(pos=pos, quat=quat_wxyz, scale=semi, shape_id=shape_id, mass=mass, mu=mu,
-                a=a, b=np.concatenate([l["b"] for l in layers]),
-                c=np.concatenate([l["c"] for l in layers]),
+                a=a, b=np.concatenate([l["b"] for l in layers if l["n"]]),
+                c=np.concatenate([l["c"] for l in layers if l["n"]]),
                 rot=rot, semi=semi, info=info)
 
 
@@ -696,6 +811,15 @@ def make_preview(path, cfg, geo, layout, H, hf_meta, title):
     plt.close(fig)
 
 
+def load_config(path=None):
+    """读 JSON 配置并叠到内置默认值上（其它脚本复用，避免各写一份）。"""
+    cfg = default_config()
+    if path:
+        with open(path, "r", encoding="utf-8-sig") as fh:   # 兼容 Windows 的 BOM
+            deep_update(cfg, json.load(fh))
+    return cfg
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="generate cobblestone trough + platform scene bundle")
     ap.add_argument("--config", default=None, help="JSON 配置（缺省用内置默认值）")
@@ -705,10 +829,7 @@ def main(argv=None):
     ap.add_argument("--no-static-mesh", action="store_true")
     args = ap.parse_args(argv)
 
-    cfg = default_config()
-    if args.config:
-        with open(args.config, "r", encoding="utf-8-sig") as fh:   # 兼容 Windows 的 BOM
-            deep_update(cfg, json.load(fh))
+    cfg = load_config(args.config)
     if args.layouts is not None:
         cfg["output"]["n_layouts"] = args.layouts
 
@@ -761,6 +882,9 @@ def main(argv=None):
         # 用本布局的真实 z_ext 推导 fill_z（保证最大卵石顶端 = nominal_top）
         layouts.append(lay)
         i = lay["info"]
+        print("  [layout %02d] exposed=%.2f%% wide=%.2f%% (%s)" % (li, 100.0 * i["exposed_plate_frac"],
+              100.0 * i["exposed_plate_frac_wide"],
+              "+".join("%d" % l["n"] for l in i["layers"])))
         print("  [layout %02d] n=%4d (%s) density=%.0f/m2 bed=%.3f m "
               "top=[%.3f,%.3f] cover=%.2f mass=%.1f..%.1f g overlap_max=%.1f mm bad=%d"
               % (li, i["n"], "+".join(str(v) for v in i["n_per_layer"]),
@@ -878,6 +1002,10 @@ def main(argv=None):
             "density_per_m2": float(np.mean([i["density_per_m2"] for i in all_info])),
             "bed_depth_mean": float(np.mean([i["bed_depth"] for i in all_info])),
             "coverage_mean": float(np.mean([i["coverage"] for i in all_info])),
+            "exposed_plate_frac_mean": float(np.mean([i["exposed_plate_frac"] for i in all_info])),
+            "exposed_plate_frac_max": float(np.max([i["exposed_plate_frac"] for i in all_info])),
+            "exposed_wide_frac_mean": float(np.mean([i["exposed_plate_frac_wide"] for i in all_info])),
+            "exposed_wide_frac_max": float(np.max([i["exposed_plate_frac_wide"] for i in all_info])),
             "overlap_max_mm": float(max(i["overlap"]["max_penetration"] for i in all_info) * 1000),
             "overlap_bad_total": int(sum(i["overlap"]["n_bad"] for i in all_info)),
             "top_mean_range": [float(min(i["top_mean"] for i in all_info)),
