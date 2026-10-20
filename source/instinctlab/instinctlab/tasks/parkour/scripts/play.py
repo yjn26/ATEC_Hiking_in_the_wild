@@ -345,8 +345,22 @@ def main():
 
     # reset environment
     obs, _ = env.get_observations()
-    if pebble_info is not None and args_cli.pebble_auto_forward > 0.0:
-        print("[INFO] pebble smoke: tracking robot base position every 100 steps")
+    if pebble_info is not None:
+        # env.reset() re-randomises terrain levels, so env_origins[0] may have moved:
+        # re-align the trough, otherwise the robot spawns on a different tile.
+        import omni.usd
+        from pxr import Gf, UsdGeom
+
+        _o = env.unwrapped.scene.terrain.env_origins[0]
+        _stage = omni.usd.get_context().get_stage()
+        _x = UsdGeom.Xformable(_stage.GetPrimAtPath("/World/pebble"))
+        _x.GetOrderedXformOps()[0].Set(Gf.Vec3d(float(_o[0]), float(_o[1]), float(_o[2])))
+        print(
+            f"[INFO] pebble scene realigned to post-reset origin ({float(_o[0]):.2f}, {float(_o[1]):.2f}, {float(_o[2]):.2f})",
+            flush=True,
+        )
+        if args_cli.pebble_auto_forward > 0.0:
+            print("[INFO] pebble smoke: tracking robot base position every 100 steps")
     update_dashboard()
     timestep = 0
     # simulate environment
