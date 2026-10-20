@@ -1,0 +1,14 @@
+# 场景包内保持 LF，避免 Windows 检出把 .sh 改成 CRLF 后无法直接执行
+* text=auto eol=lf
+
+# 二进制资产：禁止任何换行转换 / 差异文本化
+*.npz binary
+*.npy binary
+*.png binary
+
+# OBJ 是纯文本（含 41 万行），保留 LF 以便 diff，但按大文件处理
+*.obj text eol=lf
+
+# 日志证据原样保存
+*.log -text
+*.out -text

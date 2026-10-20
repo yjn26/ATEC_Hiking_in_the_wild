@@ -1,0 +1,119 @@
+{
+  "bundle_version": "1.0",
+  "created_utc": "2026-10-19T09:22:41Z",
+  "generator": {
+    "script": "gen_pebbles.py",
+    "seed": 20261019
+  },
+  "units": "m",
+  "up_axis": "Z",
+  "quat_order": "wxyz",
+  "coordinate_frame": {
+    "trough_inner_x": [
+      -0.75,
+      0.75
+    ],
+    "trough_inner_y": [
+      -2.0,
+      2.0
+    ],
+    "floor_z": 0.0,
+    "rim_z": 0.2,
+    "platform_x": [
+      0.8,
+      2.0
+    ],
+    "platform_top_z": 0.25,
+    "pebble_nominal_top_z": 0.15,
+    "bulk_fill_top_z": 0.10743179935564742,
+    "standing_pad_center": [
+      1.4,
+      -1.45,
+      0.2525
+    ],
+    "standing_pad_size": [
+      1.2,
+      1.0
+    ],
+    "suggested_spawn": {
+      "pos": [
+        1.4,
+        -1.45,
+        0.255
+      ],
+      "yaw_deg": 90.0,
+      "note": "\u673a\u5668\u4eba\u7ad9\u5728\u5e73\u53f0\u4e0a, \u9700\u5411 -X \u8de8\u4e0b\u7ea6 0.11 m \u8fdb\u5165\u5375\u77f3\u533a, \u7136\u540e\u6cbf +Y \u524d\u8fdb"
+    }
+  },
+  "shapes": {
+    "count": 32,
+    "n_dirs": 32,
+    "verts_range": [
+      32,
+      32
+    ],
+    "file": "shapes/rock_pool.npz",
+    "sha256": "75aee5e5d49375a54f78a975207dfbafed02dae07842588882b7cc6ac6cbb25c"
+  },
+  "layouts": {
+    "n": 16,
+    "n_per_layout": [
+      4467,
+      4370,
+      4443,
+      4404,
+      4413,
+      4408,
+      4500,
+      4424,
+      4382,
+      4423,
+      4397,
+      4423,
+      4391,
+      4408,
+      4392,
+      4457
+    ],
+    "file": "layouts.npz",
+    "sha256": "7ab4deaef134c4c2476cb867061aad27e93d02e7c6cdee29c161724e8d3f400e",
+    "total_pebbles": 70702
+  },
+  "physics_hints": {
+    "dt_recommended": 0.001,
+    "position_iterations": 8,
+    "contact_offset": 0.002,
+    "rest_offset": 0.001,
+    "mu_pebble_pebble": [
+      0.4,
+      0.7
+    ],
+    "mu_pebble_rubber": [
+      0.8,
+      1.0
+    ],
+    "mu_pebble_mortar": 0.45,
+    "restitution": 0.1,
+    "density": 2600.0,
+    "mass_mean_g": 33.24773587591717,
+    "note": "\u5375\u77f3\u4e3a\u5355\u5c42\u3001\u534a\u57cb\u4e8e bulk_fill \u9762; \u52a8\u529b\u5b66\u7248\u8bf7\u53ea\u7ed9\u5c11 env \u5b9e\u4f8b\u5316"
+  },
+  "quality": {
+    "coverage_mean": 0.7546796317893264,
+    "overlap_max_mm": 1.7287416431166214,
+    "overlap_bad_total": 0,
+    "top_mean_range": [
+      0.1272260583044833,
+      0.12996958633034414
+    ]
+  },
+  "files": {
+    "stage_boxes": "static/stage_boxes.json",
+    "stage_mesh": "static/stage.obj",
+    "cobble_mesh_layouts": [
+      0
+    ],
+    "heightfield": "static/heightfield_L%02d.npy",
+    "heightfield_meta": "static/heightfield_meta.json"
+  }
+}

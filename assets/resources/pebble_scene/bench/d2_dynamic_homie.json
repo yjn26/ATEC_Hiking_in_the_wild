@@ -1,0 +1,35 @@
+{
+  "mode": "dynamic",
+  "dt": 0.001,
+  "n_pebbles": 4467,
+  "readback": "PhysX RigidBodyView.get_transforms()",
+  "t_build_s": 2.425,
+  "t_reset_s": 0.526,
+  "t_total_s": 127.9,
+  "ms_per_step": 2.4043,
+  "steps_per_s": 415.9,
+  "settle": {
+    "sink_max_mm": 1.4513656497001648,
+    "sink_mean_mm": 0.004437483767105732,
+    "drift_xy_max_mm": 9.438667446374893,
+    "speed_mean_mps": 3.3818625524872914e-05,
+    "speed_max_mps": 0.009438689798116684,
+    "n_nan": 0
+  },
+  "drop": {
+    "rock_top_p95_m": 0.12280940040946006,
+    "block_gap_m": 0.03,
+    "block_z_start": 0.24277997016906738,
+    "block_z_end": 0.22863823175430298,
+    "block_bottom_end_m": 0.13863823175430298,
+    "block_sink_mm": 14.141738414764404,
+    "penetration_below_rock_top_mm": -15.82883134484292,
+    "peb_count_moved_gt2mm": 30,
+    "peb_push_max_mm": 22.78304472565651,
+    "peb_speed_max_mps": 0.011391522362828255,
+    "exploded": false,
+    "ms_per_step_drop": 2.4768186264991527
+  },
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "vram_used_mb": 0.1
+}

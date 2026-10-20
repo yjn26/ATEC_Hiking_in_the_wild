@@ -1,0 +1,21 @@
+[INFO][AppLauncher]: Using device: cuda:0
+[INFO][AppLauncher]: Loading experience file: /home/pc/DavidHong/code/IsaacLab-main/apps/isaaclab.python.headless.kit
+[   3.3s] Isaac Sim up
+[   3.3s] loading bundle ...
+[   3.4s] bundle: layouts=16 n_per_layout[0..3]=[4467, 4370, 4443, 4404] fill_z=0.106274 quat_order=wxyz
+
+[36m======================================================================================[0m
+[36m[1m[INFO][IsaacLab]: Logging to file: /tmp/isaaclab/logs/isaaclab_2026-10-19_19-07-52.log[0m
+[36m======================================================================================[0m
+
+[33m19:07:52 [simulation_context.py] WARNING: The `enable_external_forces_every_iteration` parameter in the PhysxCfg is set to False. If you are experiencing noisy velocities, consider enabling this flag. You may need to slightly increase the number of velocity iterations (setting it to 1 or 2 rather than 0), together with this flag, to improve the accuracy of velocity updates.[0m
+[   3.4s] SimulationContext dt= 0.001
+[pebble_loader] envs=1 spacing=4.00m mode=static pebbles=4467 boxes=8 fill_z=0.10627 spawn=(1.4, -1.45, 0.26)
+[   5.2s] built in 1.85s: pebbles=4467 boxes=8 mode=static
+[   5.2s] spawn=(1.4, -1.45, 0.26) yaw=90.0 fill_z=0.10627448558807373
+[   5.2s] PASS   A1 prim count == npz count × envs          built=4467 expect=4467 (4467×1)
+[   5.3s] PASS   A2 max|Δpos| <= 1e-6                       max=0.000e+00 missing=0
+[   5.3s] PASS   A3 fill top == fill_z                      top=0.106274 fill_z=0.106274
+[   5.3s] PASS   A4 spawn == standing_pad top + 5mm         spawn=(1.4, -1.45, 0.26) expect=(1.4, -1.45, 0.26)
+[   5.3s] ======================================================================
+[   5.3s] SELFTEST OK (static, 4467 pebbles, build 1.85s)

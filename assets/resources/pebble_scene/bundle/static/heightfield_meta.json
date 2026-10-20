@@ -1,0 +1,13 @@
+{
+  "origin": [
+    -0.75,
+    -2.0
+  ],
+  "cell": 0.005,
+  "shape": [
+    300,
+    800
+  ],
+  "order": "[i, j]: i->X, j->Y, origin at (-lx/2, -ly/2), cell centers",
+  "model": "noise-free ellipsoid upper envelope (approx); merged mesh is authoritative"
+}

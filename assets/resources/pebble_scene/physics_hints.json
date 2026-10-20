@@ -1,0 +1,100 @@
+{
+  "schema": "pebble_scene/physics_hints@2",
+  "measured_on": "2026-10-19 18:08-19:09 CST",
+  "host": {
+    "cpu": "AMD Ryzen 9 9950X (16C/32T)",
+    "gpu": "NVIDIA RTX 5090 32GB, driver 580.159.03",
+    "ram_gb": 31.2,
+    "os": "Ubuntu 24.04.4, kernel 6.17.0-35",
+    "isaac_sim": "5.1.0.0",
+    "isaaclab": "0.54.3 (clean IsaacLab-main, env homie_lab)",
+    "experience": "apps/isaaclab.python.headless.kit",
+    "note_cpu": "CPU performance profile = powersave 且为共享机, 绝对耗时 ±20% 波动"
+  },
+  "setup": {
+    "bundle": "out_full (16 layouts / 70702 pebbles), 物理数据用 layout 0 = 4467 颗",
+    "dt_s": 0.001,
+    "readback": "PhysX RigidBodyView.get_transforms()",
+    "note_readback": "USD xform 与 IsaacLab 的 data.root_pos_w 在本机均读到陈旧值, 不可用于度量"
+  },
+
+  "D1_static": {
+    "n_prims": 4467, "t_build_s": 1.496, "ms_per_prim": 0.456,
+    "t_reset_s": 0.384, "ms_per_step": 1.496, "steps_per_s": 669,
+    "vram_peak_mb": 4875
+  },
+  "D2_dynamic": {
+    "n_prims": 4467, "t_build_s": 2.16, "ms_per_prim": 0.48,
+    "t_reset_s": 0.526, "ms_per_step": 2.423, "steps_per_s": 413,
+    "vram_peak_mb": 6055,
+    "slowdown_vs_static": 1.62,
+    "vram_per_body_mb_est": 0.26,
+    "note_vram": "(6055-4875)/4467 ≈ 0.26 MB/颗, 粗估偏保守(含不随规模增长的固定 GPU 池)"
+  },
+
+  "scaling_sweep": {
+    "purpose": "把 ms/步~刚体数 从线性外推改成实测",
+    "rows": [
+      {"mode": "static",  "n": 4467, "ms_per_step": 1.496, "steps_per_s": 669, "t_build_s": 2.21, "vram_peak_mb": 4875},
+      {"mode": "dynamic", "n": 500,  "ms_per_step": 1.787, "steps_per_s": 560, "t_build_s": 0.24, "vram_peak_mb": 5210},
+      {"mode": "dynamic", "n": 1000, "ms_per_step": 2.056, "steps_per_s": 486, "t_build_s": 0.45, "vram_peak_mb": 5927},
+      {"mode": "dynamic", "n": 2000, "ms_per_step": 2.445, "steps_per_s": 409, "t_build_s": 0.93, "vram_peak_mb": 5993},
+      {"mode": "dynamic", "n": 4467, "ms_per_step": 2.423, "steps_per_s": 413, "t_build_s": 2.60, "vram_peak_mb": 6055}
+    ],
+    "finding_1": "动态成本在 ~2000 颗就饱和: 4467 颗(2.423 ms) 与 2000 颗(2.445 ms) 基本相同, 甚至略快。瓶颈是固定开销(<1.5 ms 静态基线 + <0.9 ms '场景里有动态刚体'), 不是颗数。",
+    "finding_2": "推论: 每 env 铺 500 颗还是 4500 颗, 每步成本几乎一样 —— 不要为了省算力而砍颗数, 该砍的是 env 数或者干脆全铺。",
+    "finding_3": "真正的上限是显存, 不是速度。按 0.26 MB/颗外推: 64 env x 800 = 51k 刚体 ≈ 16 GB(32 GB 卡安全区); 128 env x 800 ≈ 29 GB(危险); 256 env x 1000 ≈ 70 GB(不可行)。外推未实测。"
+  },
+
+  "activation_radius": {
+    "measured_density_per_m2": 745,
+    "table": [
+      {"radius_m": 0.4, "area_m2": 0.50, "pebbles": 375, "note": "偏紧, 只够一只脚"},
+      {"radius_m": 0.6, "area_m2": 1.13, "pebbles": 840, "note": "推荐默认"},
+      {"radius_m": 0.8, "area_m2": 2.01, "pebbles": 1500, "note": "保守"},
+      {"radius_m": 1.5, "area_m2": 7.07, "pebbles": 5270, "note": "比整个槽(6 m2)还大 = 全开, 等于没做"}
+    ],
+    "correction": "早期文档写的 '激活半径 1.5 m' 在本密度下没有任何节省, 有效区间是 0.4~0.7 m。"
+  },
+
+  "settling": {
+    "warmup_s": 2.0, "window_s": 2.0,
+    "sink_max_mm": 0.787, "sink_mean_mm": 0.0028, "drift_xy_max_mm": 1.914,
+    "speed_mean_mps": 6.1e-06, "speed_max_mps": 0.00097, "n_nan": 0,
+    "verdict": "静止放置后 4 s 内床层基本锁定: 典型下沉 0.003 mm、最大 0.79 mm、最大水平漂移 1.91 mm，无 NaN。解析放置是自洽的, 不需要额外沉降。"
+  },
+
+  "impact_60kg": {
+    "block_size_m": [0.5, 0.3, 0.18], "block_mass_kg": 60.0, "drop_gap_m": 0.03,
+    "rock_top_p95_m": 0.12281, "fill_z_m": 0.10743, "window_s": 4.0,
+    "block_sink_mm": 15.045, "block_bottom_end_m": 0.13773,
+    "penetration_below_rock_top_mm": -14.93,
+    "pebbles_pushed_gt2mm": 24, "pebble_push_max_mm": 38.69,
+    "pebble_avg_speed_max_mps": 0.00967, "exploded": false,
+    "verdict": "60 kg 块下沉 15 mm 后被石床托住: 块底面 0.1377 m, 高于石顶 p95 约 15 mm、高于填充体顶面 30 mm, 未穿透; 24 颗卵石被推开, 最大位移 38.7 mm, 无速度爆炸。"
+  },
+
+  "loader_selftest": {
+    "configs_run": ["static/envs=1", "dynamic/envs=1", "dynamic/envs=2"],
+    "all_pass": true,
+    "results": {
+      "A1_count": "4467 / 4467 / 8934",
+      "A2_usd_vs_npz_max_m": 0.0,
+      "A3_fill_top_m": 0.106274,
+      "A4_spawn": [1.4, -1.45, 0.26],
+      "A5_view_count": "4467 / 8934",
+      "A6_view_vs_npz": {"p50_mm": 0.06, "p99_mm": 1.11, "max_mm": 1.95}
+    },
+    "build_time": {"n_4467_s": 2.16, "n_8934_2env_s": 4.29},
+    "note_A6": "非零误差是物理事实: reset 后已过 2 步, 床层因残余重叠(上限 1.73 mm)被推开 ≤1.95 mm。",
+    "note_multienv": "多 env 必须设 env_spacing(默认 4.0 m)。间距为 0 时两份场景完全重叠, 卵石互穿, 接触推开 7.35 mm。"
+  },
+
+  "caveats": [
+    "只测了 1 个布局(layout 0), 其余 15 个布局未做物理体检",
+    "dt = 1 ms(比训练常用的 1/200 s 更细), 实际训练步进耗时会略低于此值",
+    "本机 CPU 为 powersave profile 且多人共享, 绝对耗时 ±20% 波动",
+    "物理用默认 GPU TGS + GPU broadphase, 未调 contact_offset / solver iterations; 默认 contactOffset=2 cm 与卵石(2~6 cm)同量级, 做定量'屈服'研究前必须调到 1~2 mm",
+    "多 env 显存与吞吐是线性外推, 未实测"
+  ]
+}

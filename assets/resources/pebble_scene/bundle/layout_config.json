@@ -1,0 +1,95 @@
+{
+  "units": "m",
+  "up_axis": "Z",
+  "quat_order": "wxyz",
+  "seed": 20261019,
+  "robot_class": "generic_large",
+  "trough": {
+    "inner_size": [
+      1.5,
+      4.0
+    ],
+    "depth": 0.2,
+    "wall_thickness": 0.05
+  },
+  "platform": {
+    "width": 1.2,
+    "top_height": 0.25,
+    "side": "+x"
+  },
+  "standing_pad": {
+    "size": [
+      1.2,
+      1.0
+    ],
+    "center": null,
+    "thickness": 0.005
+  },
+  "pebble_bed": {
+    "nominal_top": 0.15,
+    "bulk_fill": true
+  },
+  "pebbles": {
+    "size_range": [
+      0.02,
+      0.06
+    ],
+    "axis_ratio_b": [
+      0.6,
+      0.9
+    ],
+    "axis_ratio_c": [
+      0.5,
+      0.8
+    ],
+    "coverage": 0.75,
+    "tilt_deg": 20.0,
+    "noise_amp": 0.07,
+    "n_waves": 6,
+    "pool_size": 32,
+    "n_dirs": 32,
+    "overlap_allow": 0.95,
+    "relax_iters": 150,
+    "z_jitter": 0.0015
+  },
+  "materials": {
+    "density": 2600.0,
+    "mu_mean": 0.55,
+    "mu_range": [
+      0.4,
+      0.7
+    ]
+  },
+  "output": {
+    "n_layouts": 16,
+    "heightfield_cell": 0.005,
+    "static_mesh_layouts": [
+      0
+    ],
+    "preview": true
+  },
+  "_comment": "\u6b63\u5f0f\u573a\u666f: 1.5 x 4.0 m \u9e45\u5375\u77f3\u6b65\u884c\u69fd(\u6df1 0.20 m) + \u62ac\u5347\u5e73\u53f0(\u9876\u9762 0.25 m) + \u7ad9\u7acb\u53f0",
+  "_derived": {
+    "lx": 1.5,
+    "ly": 4.0,
+    "depth": 0.2,
+    "t": 0.05,
+    "rim_z": 0.2,
+    "floor_z": 0.0,
+    "plat_w": 1.2,
+    "plat_top": 0.25,
+    "plat_x0": 0.8,
+    "plat_x1": 2.0,
+    "robot_class": "generic_large",
+    "pad_size": [
+      1.2,
+      1.0
+    ],
+    "pad_th": 0.005,
+    "pad_center": [
+      1.4,
+      -1.45,
+      0.2525
+    ]
+  }
+}

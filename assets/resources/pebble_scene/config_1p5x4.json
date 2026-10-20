@@ -1,0 +1,59 @@
+{
+  "_comment": "正式场景: 1.5 x 4.0 m 鹅卵石步行槽(深 0.20 m) + 抬升平台(顶面 0.25 m) + 站立台",
+  "units": "m",
+  "up_axis": "Z",
+  "quat_order": "wxyz",
+  "seed": 20261019,
+  "robot_class": "generic_large",
+
+  "trough": {
+    "inner_size": [1.5, 4.0],
+    "depth": 0.20,
+    "wall_thickness": 0.05
+  },
+
+  "platform": {
+    "width": 1.20,
+    "top_height": 0.25,
+    "side": "+x"
+  },
+
+  "standing_pad": {
+    "size": [1.20, 1.00],
+    "center": null,
+    "thickness": 0.005
+  },
+
+  "pebble_bed": {
+    "nominal_top": 0.15,
+    "bulk_fill": true
+  },
+
+  "pebbles": {
+    "size_range": [0.020, 0.060],
+    "axis_ratio_b": [0.60, 0.90],
+    "axis_ratio_c": [0.50, 0.80],
+    "coverage": 0.75,
+    "tilt_deg": 20.0,
+    "noise_amp": 0.07,
+    "n_waves": 6,
+    "pool_size": 32,
+    "n_dirs": 32,
+    "overlap_allow": 0.95,
+    "relax_iters": 150,
+    "z_jitter": 0.0015
+  },
+
+  "materials": {
+    "density": 2600.0,
+    "mu_mean": 0.55,
+    "mu_range": [0.40, 0.70]
+  },
+
+  "output": {
+    "n_layouts": 16,
+    "heightfield_cell": 0.005,
+    "static_mesh_layouts": [0],
+    "preview": true
+  }
+}

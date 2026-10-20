@@ -1,0 +1,25 @@
+[INFO][AppLauncher]: Using device: cuda:0
+[INFO][AppLauncher]: Loading experience file: /home/pc/DavidHong/code/IsaacLab-main/apps/isaaclab.python.headless.kit
+[  68.4s] Isaac Sim up
+[  68.4s] loading bundle ...
+[  68.4s] bundle: layouts=16 n_per_layout[0..3]=[4467, 4370, 4443, 4404] fill_z=0.106274 quat_order=wxyz
+
+[36m======================================================================================[0m
+[36m[1m[INFO][IsaacLab]: Logging to file: /tmp/isaaclab/logs/isaaclab_2026-10-19_19-09-27.log[0m
+[36m======================================================================================[0m
+
+[33m19:09:27 [simulation_context.py] WARNING: The `enable_external_forces_every_iteration` parameter in the PhysxCfg is set to False. If you are experiencing noisy velocities, consider enabling this flag. You may need to slightly increase the number of velocity iterations (setting it to 1 or 2 rather than 0), together with this flag, to improve the accuracy of velocity updates.[0m
+[  68.4s] SimulationContext dt= 0.001
+[pebble_loader] envs=2 spacing=4.00m mode=dynamic pebbles=8934 boxes=16 fill_z=0.10627 spawn=(1.4, -1.45, 0.26)
+[  72.7s] built in 4.29s: pebbles=8934 boxes=16 mode=dynamic
+[  72.7s] spawn=(1.4, -1.45, 0.26) yaw=90.0 fill_z=0.10627448558807373
+[  72.7s] PASS   A1 prim count == npz count × envs          built=8934 expect=8934 (4467×2)
+[  72.8s] PASS   A2 max|Δpos| <= 1e-6                       max=0.000e+00 missing=0
+[  72.8s] PASS   A3 fill top == fill_z                      top=0.106274 fill_z=0.106274
+[  72.8s] PASS   A4 spawn == standing_pad top + 5mm         spawn=(1.4, -1.45, 0.26) expect=(1.4, -1.45, 0.26)
+[  72.8s] sim.reset() ...
+[  73.6s] PASS   A5 view count == pebbles                   view=8934 built=8934 (envs=2)
+[  73.6s] PASS   A6 view 位姿与 npz 对齐 (p99<=3mm, max<=5mm)    p50=0.06mm p99=1.11mm max=1.95mm (残余重叠上限 1.73mm)
+[  73.6s] view z range: 0.10963 .. 0.12781  (fill_z=0.10627)
+[  73.6s] ======================================================================
+[  73.6s] SELFTEST OK (dynamic, 8934 pebbles, build 4.29s)

@@ -1,0 +1,6 @@
+=== selftest start 2026年 10月 19日 星期一 19:07:49 CST
+--- static start 19:07:49
+[static] OK  rc=0  19:07:54
+--- dynamic start 19:07:54
+[dynamic] OK  rc=0  19:08:01
+=== selftest end 2026年 10月 19日 星期一 19:08:01 CST
