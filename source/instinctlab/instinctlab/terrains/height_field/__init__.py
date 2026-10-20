@@ -1,4 +1,5 @@
 from .hf_terrains_cfg import (
+    PebbleBedTerrainCfg,
     PerlinCrossStoneTerrainCfg,
     PerlinDiscreteObstaclesTerrainCfg,
     PerlinGutterTerrainCfg,

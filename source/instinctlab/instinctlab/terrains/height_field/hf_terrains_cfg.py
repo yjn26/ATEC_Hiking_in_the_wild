@@ -14,6 +14,7 @@ from isaaclab.terrains.height_field import (
 from isaaclab.utils import configclass
 
 from . import hf_terrains
+from . import pebble_terrains
 
 
 class WallTerrainCfgMixin:
@@ -208,3 +209,33 @@ class PerlinSquareGapTerrainCfg(HfTerrainBaseCfg, WallTerrainCfgMixin):
     border_width: float = 0.0
 
     perlin_cfg: PerlinPlaneTerrainCfg | None = None
+
+
+@configclass
+class PebbleBedTerrainCfg(HfTerrainBaseCfg, WallTerrainCfgMixin):
+    """Configuration for a cobblestone / pebble bed height-field terrain.
+
+    静态高度场近似：地面是一张烘焙好的三角网格，脚踩不散石头。真正的可推开卵石床
+    （18 847 颗刚体 / 4 层 / 0.12 m 厚）见 ``scripts/pebble_scene``，只在 play 场景里用。
+    """
+
+    function = pebble_terrains.pebble_bed_terrain
+
+    stone_radius_range: tuple[float, float] = (0.060, 0.130)
+    """Range of the cobble semi-axis (m), i.e. diameter 12-26 cm."""
+    crest_height_ratio: tuple[float, float] = (0.30, 0.45)
+    """Proud height of a stone as a fraction of its semi-axis."""
+    size_difficulty_gain: float = 0.45
+    """Stones grow by (1 + gain * difficulty), so the curriculum also coarsens the bed."""
+    lattice_spacing_ratio: float = 0.85
+    """Lattice spacing as a fraction of the stone diameter; < 1 makes stones overlap."""
+    num_layers: int = 2
+    """Base layer plus one layer of smaller stones sitting in the valleys."""
+    upper_layer_scale: float = 0.68
+    """Size of the upper-layer stones relative to the base layer."""
+    crevice_fill_ratio: float = 0.25
+    """Height of the packed fines in the crevices, as a fraction of the crest height."""
+    max_slope_deg: float = 28.0
+    """Slope clamp (deg). Keeps the mesh from producing vertical faces / sharp edges."""
+    slope_iterations: int = 4
+    blur_weight: float = 0.35

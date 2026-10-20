@@ -55,7 +55,7 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
     sub_terrains={
         "perlin_rough": terrain_gen.PerlinPlaneTerrainCfg(
-            proportion=0.05,
+            proportion=0.15,
             noise_scale=[0.0, 0.1],
             noise_frequency=20,
             fractal_octaves=2,
@@ -72,7 +72,7 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
             },
         ),
         "perlin_rough_stand": terrain_gen.PerlinPlaneTerrainCfg(
-            proportion=0.05,
+            proportion=0.1,
             noise_scale=[0.0, 0.1],
             noise_frequency=20,
             fractal_octaves=2,
@@ -85,25 +85,6 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
             flat_patch_sampling={
                 "target": FlatPatchSamplingCfg(
                     num_patches=50, patch_radius=[0.05, 0.10, 0.15, 0.20], max_height_diff=0.05
-                ),
-            },
-        ),
-        "square_gaps": terrain_gen.PerlinSquareGapTerrainCfg(
-            proportion=0.10,
-            gap_distance_range=(0.1, 0.7),
-            gap_depth=(0.4, 0.6),
-            platform_width=2.5,
-            border_width=1.0,
-            wall_prob=[0.3, 0.3, 0.3, 0.3],
-            wall_height=5.0,
-            wall_thickness=0.05,
-            flat_patch_sampling={
-                "target": FlatPatchSamplingCfg(
-                    num_patches=50,
-                    patch_radius=[0.05, 0.10, 0.15, 0.20],
-                    max_height_diff=0.05,
-                    x_range=(3.7, 3.7),
-                    y_range=(-0.0, 0.0),
                 ),
             },
         ),
@@ -135,7 +116,7 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
             },
         ),
         "pyramid_stairs_high": terrain_gen.PerlinPyramidStairsTerrainCfg(
-            proportion=0.10,
+            proportion=0.1,
             step_height_range=(0.05, 0.45),
             step_width=1.5,
             platform_width=4.0,
@@ -189,7 +170,7 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
             },
         ),
         "pyramid_stairs_inv_high": terrain_gen.PerlinInvertedPyramidStairsTerrainCfg(
-            proportion=0.10,
+            proportion=0.1,
             step_height_range=(0.05, 0.45),
             step_width=1.5,
             platform_width=4.0,
@@ -215,68 +196,27 @@ ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
                 ),
             },
         ),
-        "boxes": terrain_gen.PerlinDiscreteObstaclesTerrainCfg(
-            proportion=0.10,
-            num_obstacles=20,
-            obstacle_height_mode="fixed",
-            obstacle_width_range=(0.8, 1.5),
-            obstacle_height_range=(0.05, 0.45),
-            platform_width=1.5,
-            border_width=0.0,
+        "pebble_bed": terrain_gen.PebbleBedTerrainCfg(
+            proportion=0.25,
+            # 5 cm 网格能表达的最小尺度: 直径 12-26 cm 的块石, 露出 3-7 cm.
+            # 与 scripts/pebble_scene 里 2-6 cm 的刚体床同源, 只是放大了一号:
+            # 训练地形是静态 trimesh, 4096 个并行环境不可能放 1.9 万颗刚体.
+            stone_radius_range=(0.060, 0.130),
+            crest_height_ratio=(0.30, 0.45),
+            size_difficulty_gain=0.45,
+            lattice_spacing_ratio=0.85,
+            num_layers=2,
+            upper_layer_scale=0.68,
+            crevice_fill_ratio=0.25,
+            max_slope_deg=28.0,
+            slope_iterations=4,
+            blur_weight=0.35,
             wall_prob=[0.3, 0.3, 0.3, 0.3],
             wall_height=5.0,
             wall_thickness=0.05,
-            perlin_cfg=terrain_gen.PerlinPlaneTerrainCfg(
-                noise_scale=0.05,
-                noise_frequency=20,
-                fractal_octaves=2,
-                fractal_lacunarity=2.0,
-                fractal_gain=0.25,
-                centering=True,
-            ),
             flat_patch_sampling={
                 "target": FlatPatchSamplingCfg(
-                    num_patches=50, patch_radius=[0.05, 0.10, 0.15, 0.20], max_height_diff=0.05
-                ),
-            },
-        ),
-        "mesh_boxes": terrain_gen.PerlinMeshRandomMultiBoxTerrainCfg(
-            proportion=0.10,
-            box_height_mean=[0.1, 0.4],
-            box_height_range=0.05,
-            box_length_mean=0.4,
-            box_length_range=0.1,
-            box_width_mean=0.4,
-            box_width_range=0.1,
-            platform_width=1.5,
-            generation_ratio=0.3,
-            no_perlin_at_obstacle=True,
-            wall_prob=[0.3, 0.3, 0.3, 0.3],
-            wall_height=5.0,
-            wall_thickness=0.05,
-            flat_patch_sampling={
-                "target": FlatPatchSamplingCfg(num_patches=50, patch_radius=[0.05, 0.10, 0.15], max_height_diff=0.05),
-            },
-        ),
-        "hf_pyramid_slope_inv": terrain_gen.PerlinInvertedPyramidSlopedTerrainCfg(
-            proportion=0.10,
-            slope_range=(0.0, 0.7),
-            platform_width=1.5,
-            border_width=1.0,
-            wall_prob=[0.3, 0.3, 0.3, 0.3],
-            wall_height=5.0,
-            wall_thickness=0.05,
-            perlin_cfg=terrain_gen.PerlinPlaneTerrainCfg(
-                noise_scale=0.00,
-                noise_frequency=20,
-                fractal_octaves=2,
-                fractal_lacunarity=2.0,
-                fractal_gain=0.25,
-                centering=True,
-            ),
-            flat_patch_sampling={
-                "target": FlatPatchSamplingCfg(
-                    num_patches=50, patch_radius=[0.05, 0.10, 0.15, 0.20], max_height_diff=0.05
+                    num_patches=50, patch_radius=[0.05, 0.10], max_height_diff=0.10
                 ),
             },
         ),
@@ -630,7 +570,8 @@ class CommandsCfg:
         velocity_ranges={
             "perlin_rough": {"lin_vel_x": (0.45, 1.0), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
             "perlin_rough_stand": {"lin_vel_x": (0.0, 0.0), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (0.0, 0.0)},
-            "square_gaps": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
+            # 卵石床起伏大，给中等速度
+            "pebble_bed": {"lin_vel_x": (0.40, 0.70), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
             "pyramid_stairs": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
             "pyramid_stairs_high": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
             "pyramid_stairs_inv": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
@@ -639,9 +580,6 @@ class CommandsCfg:
                 "lin_vel_y": (0.0, 0.0),
                 "ang_vel_z": (-1.0, 1.0),
             },
-            "boxes": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
-            "mesh_boxes": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
-            "hf_pyramid_slope_inv": {"lin_vel_x": (0.45, 0.8), "lin_vel_y": (0.0, 0.0), "ang_vel_z": (-1.0, 1.0)},
         },
         only_positive_lin_vel_x=True,
         lin_vel_threshold=0.0,
