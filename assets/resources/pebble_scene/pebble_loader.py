@@ -162,10 +162,17 @@ def build_pebble_scene(bundle: Union[str, BundleInfo], n_envs: int = 1,
                        with_pebbles: bool = True, make_invisible: bool = True,
                        limit: int = 0, spawn_clearance: float = 0.005,
                        env_spacing: float = 4.0,
+                       contact_offset: Optional[float] = None,
+                       rest_offset: Optional[float] = None,
                        verbose: bool = True, **_) -> Dict:
     """在当前打开的 USD stage 上建场。返回句柄字典。
 
     mode: "dynamic" 加 RigidBodyAPI+MassAPI（可被踩动）；"static" 只做碰撞体。
+
+    contact_offset / rest_offset: PhysX 接触带。默认 None = 引擎默认（2 cm），
+    与卵石尺寸同阶，会让整床卵石表现得像一块刚性板；想看到“踩下去会陷”
+    必须显式调到 1–2 mm（见 RECOMMENDED）。同时也要约束机器人脚的
+    contact offset，因为一对碰撞体的接触距离是两侧之和。
     """
     if mode not in ("dynamic", "static"):
         raise ValueError("mode 必须是 dynamic / static")
@@ -219,6 +226,7 @@ def build_pebble_scene(bundle: Union[str, BundleInfo], n_envs: int = 1,
                 xf.AddScaleOp().Set(Gf.Vec3f(*[float(v) for v in b["size"]]))
                 prim = c.GetPrim()
                 UsdPhysics.CollisionAPI.Apply(prim)
+                _apply_contact_offsets(prim, contact_offset, rest_offset)
                 _bind(prim, MAT_MORTAR)
                 out["box_paths"].append(p)
 
@@ -252,6 +260,7 @@ def build_pebble_scene(bundle: Union[str, BundleInfo], n_envs: int = 1,
                 prim = m.GetPrim()
                 UsdPhysics.CollisionAPI.Apply(prim)
                 UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr(PHYS["convex_approx"])
+                _apply_contact_offsets(prim, contact_offset, rest_offset)
                 if dyn:
                     UsdPhysics.RigidBodyAPI.Apply(prim)
                     ma = UsdPhysics.MassAPI.Apply(prim)
@@ -274,6 +283,25 @@ def build_pebble_scene(bundle: Union[str, BundleInfo], n_envs: int = 1,
               % (n_envs, env_spacing, mode, out["n_pebbles"], len(out["box_paths"]), info.fill_z, out["spawn"]),
               flush=True)
     return out
+
+
+def _apply_contact_offsets(prim, contact_offset: Optional[float], rest_offset: Optional[float]) -> None:
+    """给碰撞体写 PhysX 接触带。两个都为 None 时什么都不做（保留引擎默认）。
+
+    PhysX 默认 contactOffset = 0.02 m，与卵石（直径 ~2 cm）同阶：接触在相距 2 cm
+    时就生成，整床卵石因此表现为一块刚性板，机器人踩上去不会下沉、卵石不会被
+    推开。一对碰撞体的接触距离是**两侧之和**，所以只改卵石侧不够，机器人脚的
+    contact offset 也得同等约束（见 play.py 的 --pebble_contact_offset）。
+    """
+    if contact_offset is None and rest_offset is None:
+        return
+    from pxr import PhysxSchema
+
+    api = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+    if contact_offset is not None:
+        api.CreateContactOffsetAttr(float(contact_offset))
+    if rest_offset is not None:
+        api.CreateRestOffsetAttr(float(rest_offset))
 
 
 def derive_spawn(boxes: List[dict], clearance: float = 0.005):
